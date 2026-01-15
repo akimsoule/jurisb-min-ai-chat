@@ -1,0 +1,6 @@
+# Prisma
+node_modules/
+*.db
+*.db-journal
+.env
+.env.local
