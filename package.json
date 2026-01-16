@@ -10,6 +10,9 @@
   },
   "dependencies": {
     "@neondatabase/neon-js": "^0.1.0-beta.22",
+    "@neondatabase/serverless": "^1.0.2",
+    "@prisma/adapter-neon": "^7.2.0",
+    "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
@@ -25,6 +28,7 @@
     "prisma": "^7.2.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "pg": "^8.11.5",
     "stripe": "^20.1.2",
     "tailwind-merge": "^3.4.0"
   },

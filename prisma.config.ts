@@ -1,13 +1,17 @@
-// Prisma v5+ Configuration
-// DATABASE_URL doit être défini dans .env.local
-// Prisma lit automatiquement la config depuis ce fichier
+import { defineConfig } from "prisma/config";
+import { loadEnvConfig } from "@next/env";
 
-const config = {
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL,
-    },
+// Charge les variables d'environnement depuis la racine du projet
+// Cela inclut .env, .env.local, .env.development, etc.
+loadEnvConfig(process.cwd());
+
+export default defineConfig({
+  schema: "prisma/schema.prisma",
+  migrations: {
+    path: "prisma/migrations",
   },
-};
-
-export default config;
+  datasource: {
+    // Utilise maintenant la variable chargée depuis .env.local
+    url: process.env.DATABASE_URL,
+  },
+});
