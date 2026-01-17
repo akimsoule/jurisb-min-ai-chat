@@ -13,7 +13,7 @@ export default function EmptyState({ onSuggestedQuestion }: EmptyStateProps) {
   ];
 
   return (
-    <div className="flex flex-col items-center justify-center h-full pt-50 py-12">
+    <div className="flex flex-col items-center justify-center h-full pt-20 py-12">
       <div className="text-center space-y-8 max-w-2xl mx-auto px-4">
         {/* Logo */}
         <div className="flex justify-center mb-4">

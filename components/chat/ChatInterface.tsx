@@ -16,6 +16,8 @@ interface Message {
   timestamp: Date;
 }
 
+const activated = false;
+
 export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -170,7 +172,7 @@ export default function ChatInterface() {
                       }
                     }}
                     placeholder="Posez une question..."
-                    className="flex-1 px-4 py-3 resize-none outline-none text-base-content placeholder-base-content/50 bg-base-100 border border-base-300 rounded-lg"
+                    className="flex-1 px-4 py-3 resize-none outline-none text-base-content placeholder-base-content/50 bg-base-100 border border-base-300 rounded-lg !text-xs"
                     rows={2}
                   />
 
@@ -189,7 +191,7 @@ export default function ChatInterface() {
 
             {/* Disclaimer bottom bar */}
             <div className="border-t border-base-300 bg-base-200 px-4 py-2">
-              <p className="text-xs text-base-content/50 text-center flex items-center justify-center gap-1.5">
+              <p className="text-[0.6rem] text-base-content/50 text-center flex items-center justify-center gap-1.5">
                 <AlertTriangle className="w-3 h-3 text-base-content/50" />
                 JurisBénin est un assistant IA. Les réponses sont à titre
                 informatif et ne remplacent pas l'avis d'un avocat. La base de
@@ -221,32 +223,34 @@ export default function ChatInterface() {
           </div>
           <div className="flex-1" />
           {/* Buttons */}
-          <div className="border-t border-base-300 p-4 flex flex-col gap-2 bg-base-100">
-            <Link
-              href="/auth/signup"
-              className="btn btn-primary w-full"
-              onClick={() => {
-                const drawerInput = document.getElementById(
-                  "app-drawer",
-                ) as HTMLInputElement;
-                if (drawerInput) drawerInput.checked = false;
-              }}
-            >
-              Inscription
-            </Link>
-            <Link
-              href="/auth/login"
-              className="btn btn-outline btn-secondary w-full"
-              onClick={() => {
-                const drawerInput = document.getElementById(
-                  "app-drawer",
-                ) as HTMLInputElement;
-                if (drawerInput) drawerInput.checked = false;
-              }}
-            >
-              Connexion
-            </Link>
-          </div>
+          {activated && (
+            <div className="border-t border-base-300 p-4 flex flex-col gap-2 bg-base-100">
+              <Link
+                href="/auth/signup"
+                className="btn btn-primary w-full"
+                onClick={() => {
+                  const drawerInput = document.getElementById(
+                    "app-drawer",
+                  ) as HTMLInputElement;
+                  if (drawerInput) drawerInput.checked = false;
+                }}
+              >
+                Inscription
+              </Link>
+              <Link
+                href="/auth/login"
+                className="btn btn-outline btn-secondary w-full"
+                onClick={() => {
+                  const drawerInput = document.getElementById(
+                    "app-drawer",
+                  ) as HTMLInputElement;
+                  if (drawerInput) drawerInput.checked = false;
+                }}
+              >
+                Connexion
+              </Link>
+            </div>
+          )}
         </aside>
       </div>
     </div>
