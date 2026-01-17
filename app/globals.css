@@ -5,6 +5,7 @@
 @import "./styles/borders.css";
 @import "./styles/spacing.css";
 @import "./styles/padding.css";
+@import "./styles/headings.css";
 
 
 @plugin "daisyui/theme" {

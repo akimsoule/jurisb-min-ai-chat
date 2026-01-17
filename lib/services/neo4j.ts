@@ -14,35 +14,102 @@ function getDriver(): Driver {
   return driver;
 }
 
+interface ArticleHit {
+  id: string;
+  numero_article: string;
+  titre_loi: string;
+  contenu: string;
+  score: number;
+  metadata?: {
+    lawNumber?: string;
+    lawDate?: string;
+    source?: string;
+  };
+}
+
 /**
- * Recherche les articles pertinents basés sur la similarité des embeddings
+ * Recherche les articles pertinents via similarité cosinus sur l'index vectoriel Neo4j
  */
-export async function searchArticles(embedding: number[], limit: number = 5) {
+export async function searchArticles(
+  embedding: number[],
+  limit: number = 4
+): Promise<ArticleHit[]> {
   const driver = getDriver();
-  const session: Session = driver.session();
+  const session: Session = driver.session({
+    database: process.env.NEO4J_DATABASE || "neo4j",
+  });
 
   try {
-    // TODO: Implémenter la similarité cosinus dans Neo4j
-    // Cette requête dépendra de la manière dont les embeddings sont stockés
-
     const result = await session.run(
       `
-      MATCH (a:Article)
-      RETURN a.id, a.numero_article, a.titre_loi, a.contenu, a.embedding
-      LIMIT $limit
+      CALL db.index.vector.queryNodes('article_embeddings', $limit, $embedding)
+      YIELD node, score
+      RETURN node.id AS id, node.numero_article AS numero_article, node.titre_loi AS titre_loi, node.contenu AS contenu, node.source AS source, node.metadata AS metadata, score
       `,
-      { limit }
+      { limit: Math.floor(limit), embedding }
     );
 
-    return result.records.map((record) => ({
-      id: record.get("a.id"),
-      numero_article: record.get("a.numero_article"),
-      titre_loi: record.get("a.titre_loi"),
-      contenu: record.get("a.contenu"),
-    }));
+    console.log(result);
+    return result.records.map((record) => {
+      const metadata = record.get("metadata");
+      let parsedMetadata: ArticleHit["metadata"] = {
+        source: record.get("source"),
+      };
+
+      if (metadata && typeof metadata === "string") {
+        try {
+          const parsed = JSON.parse(metadata);
+          parsedMetadata = { ...parsedMetadata, ...parsed };
+        } catch (e) {
+          console.warn("Failed to parse metadata:", metadata);
+        }
+      }
+
+      return {
+        id: record.get("id"),
+        numero_article: record.get("numero_article"),
+        titre_loi: record.get("titre_loi"),
+        contenu: record.get("contenu"),
+        score: record.get("score"),
+        metadata: parsedMetadata,
+      };
+    });
   } catch (error) {
+    // Fallback sans index vectoriel : retourne les premiers articles pour éviter un crash
     console.error("Error searching articles:", error);
-    throw error;
+    const fallback = await session.run(
+      `
+      MATCH (a:Article)
+      RETURN a.id AS id, a.numero_article AS numero_article, a.titre_loi AS titre_loi, a.contenu AS contenu, a.source AS source, a.metadata AS metadata
+      LIMIT $limit
+      `,
+      { limit: Math.floor(limit) }
+    );
+
+    return fallback.records.map((record) => {
+      const metadata = record.get("metadata");
+      let parsedMetadata: ArticleHit["metadata"] = {
+        source: record.get("source"),
+      };
+
+      if (metadata && typeof metadata === "string") {
+        try {
+          const parsed = JSON.parse(metadata);
+          parsedMetadata = { ...parsedMetadata, ...parsed };
+        } catch (e) {
+          console.warn("Failed to parse metadata:", metadata);
+        }
+      }
+
+      return {
+        id: record.get("id"),
+        numero_article: record.get("numero_article"),
+        titre_loi: record.get("titre_loi"),
+        contenu: record.get("contenu"),
+        score: 0,
+        metadata: parsedMetadata,
+      };
+    });
   } finally {
     await session.close();
   }

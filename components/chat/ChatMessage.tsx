@@ -1,9 +1,14 @@
-import { BookOpen, Copy, Check } from "lucide-react";
+import { BookOpen, Copy, Check, ScrollText } from "lucide-react";
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface Source {
   title: string;
   article: string;
+  lawNumber?: string;
+  lawDate?: string;
+  source?: string;
 }
 
 interface ChatMessageProps {
@@ -37,31 +42,102 @@ export default function ChatMessage({ message }: ChatMessageProps) {
   }
 
   return (
-    <div className="flex gap-4 mb-6">
-      {/* Avatar */}
-      <div className="h-8 w-8 flex-shrink-0 rounded-full bg-base-300" />
-
+    <div className="flex mb-6">
       {/* Content */}
       <div className="flex-1 max-w-lg lg:max-w-2xl">
-        {/* Main Message */}
-        <div className="prose prose-sm max-w-none text-base-content text-sm leading-relaxed whitespace-pre-wrap">
-          {message.content}
+        {/* Main Message (Markdown rendered) */}
+        <div className="prose prose-sm max-w-none text-base-content text-sm leading-relaxed">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              h1: ({ children }) => (
+                <h1 className="text-2xl font-bold flex items-center gap-2">
+                  <span>📘</span>
+                  {children}
+                </h1>
+              ),
+              h2: ({ children }) => (
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <span>📑</span>
+                  {children}
+                </h2>
+              ),
+              h3: ({ children }) => (
+                <h3 className="text-lg font-semibold flex items-center gap-2 text-base-content/90">
+                  <span>⚖️</span>
+                  {children}
+                </h3>
+              ),
+              h4: ({ children }) => (
+                <h4 className="text-base font-semibold flex items-center gap-2 text-base-content/70">
+                  <span>🔎</span>
+                  {children}
+                </h4>
+              ),
+              strong: ({ children }) => (
+                <strong className="font-bold text-base-content">
+                  {children}
+                </strong>
+              ),
+              blockquote: ({ children }) => (
+                <blockquote className="border-l-4 border-base-300 pl-3 py-2 bg-base-200 rounded-md text-base-content/90">
+                  <div className="flex items-start gap-2">
+                    <ScrollText className="w-3 h-3 text-base-content/60 mt-1" />
+                    <div>{children}</div>
+                  </div>
+                </blockquote>
+              ),
+              ul: ({ children }) => (
+                <ul className="list-disc ml-5 space-y-1">{children}</ul>
+              ),
+              ol: ({ children }) => (
+                <ol className="list-decimal ml-5 space-y-1">{children}</ol>
+              ),
+              hr: () => <hr className="my-4 border-base-300" />,
+              p: ({ children }) => (
+                <p className="leading-relaxed">{children}</p>
+              ),
+              code: ({ children }) => (
+                <code className="px-1 py-0.5 rounded bg-base-300 text-base-content/90">
+                  {children}
+                </code>
+              ),
+            }}
+          >
+            {message.content}
+          </ReactMarkdown>
         </div>
 
         {/* Sources */}
         {message.sources && message.sources.length > 0 && (
-          <div className="mt-4 space-y-2 bg-base-200 rounded-lg p-3">
-            <h4 className="font-medium text-xs text-base-content flex items-center gap-2">
+          <div className="mt-4 space-y-2 bg-base-100 rounded-lg p-3 border border-base-300">
+            <h4 className="font-semibold text-xs text-base-content/80 flex items-center gap-2">
               <BookOpen className="w-3 h-3" />
               Fondement légal
             </h4>
-            <ul className="space-y-1">
+            <ul className="space-y-2">
               {message.sources.map((source, idx) => (
                 <li key={idx} className="text-xs text-base-content/80">
                   <p className="font-medium text-base-content">
-                    {source.title}
+                    {source.article}
                   </p>
-                  <p className="text-base-content/70">{source.article}</p>
+                  <p className="text-base-content/70">{source.title}</p>
+                  {(source.lawNumber || source.source) && (
+                    <p className="text-base-content/70">
+                      {source.source ? (
+                        <a
+                          href={source.source}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-base-content/70 hover:text-base-content underline"
+                        >
+                          {`Source : loi n° ${source.lawNumber ?? ""}`.trim()}
+                        </a>
+                      ) : (
+                        <>Source : loi n° {source.lawNumber}</>
+                      )}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>

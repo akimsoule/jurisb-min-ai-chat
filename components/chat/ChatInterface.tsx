@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, X, AlertTriangle } from "lucide-react";
+import { Send, X, AlertTriangle, Plus } from "lucide-react";
 import ChatMessage from "./ChatMessage";
 import EmptyState from "./EmptyState";
 import Header from "@/components/layout/Header";
@@ -20,6 +20,7 @@ export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   // Modals supprimés au profit de pages dédiées
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -38,8 +39,10 @@ export default function ChatInterface() {
     e.preventDefault();
     if (!input.trim()) return;
 
+    setError(null);
+
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
       role: "user",
       content: input,
       timestamp: new Date(),
@@ -49,35 +52,50 @@ export default function ChatInterface() {
     setInput("");
     setLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await fetch("/api/ask", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ question: input }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setError(data.error || "Une erreur est survenue");
+        return;
+      }
+
+      const data = await response.json();
       const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-a`,
         role: "assistant",
-        content: `Réponse juridique concernant votre question sur "${input}". 
-        
-Voici les éléments applicables selon la législation béninoise :
-
-• Les articles pertinents du Code civil
-• Les dispositions spéciales du Code du travail
-• Les jurisprudences récentes
-
-Cette réponse est fondée sur les textes de loi en vigueur et ne constitue pas un avis juridique personnalisé.`,
-        sources: [
-          { title: "Code Civil du Bénin", article: "Article 1234" },
-          { title: "Code du Travail", article: "Article 567" },
-        ],
+        content: data.answer,
+        sources: data.sources,
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+    } catch (err) {
+      console.error("Chat error", err);
+      setError("Impossible de récupérer la réponse. Réessayez.");
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   const handleSuggestedQuestion = (question: string) => {
     setInput(question);
     setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const handleResetChat = () => {
+    if (confirm("Êtes-vous sûr de vouloir réinitialiser le chat ?")) {
+      setMessages([]);
+      setInput("");
+      setError(null);
+    }
   };
 
   return (
@@ -87,11 +105,17 @@ Cette réponse est fondée sur les textes de loi en vigueur et ne constitue pas 
         <Header />
         <div className="flex flex-col flex-1 bg-base-100">
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto pb-48">
             {messages.length === 0 ? (
               <EmptyState onSuggestedQuestion={handleSuggestedQuestion} />
             ) : (
               <div className="mx-auto max-w-3xl px-4 pt-24 py-8 sm:px-6 space-y-6">
+                {error && (
+                  <div className="alert alert-error shadow-sm">
+                    <AlertTriangle className="w-4 h-4" />
+                    <span className="text-sm">{error}</span>
+                  </div>
+                )}
                 {messages.map((message) => (
                   <ChatMessage key={message.id} message={message} />
                 ))}
@@ -116,45 +140,64 @@ Cette réponse est fondée sur les textes de loi en vigueur et ne constitue pas 
             )}
           </div>
 
-          {/* Input Area */}
-          <div className="bg-base-100 px-4 py-6 sm:px-6 border-t border-base-300">
-            <div className="mx-auto max-w-3xl">
-              {/* Input Form */}
-              <form
-                onSubmit={handleSendMessage}
-                className="relative border border-base-300 rounded-lg p-4 bg-base-100"
-              >
-                <textarea
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage(e as any);
-                    }
-                  }}
-                  placeholder="Posez une question..."
-                  className="w-full px-0 py-2 pr-12 resize-none outline-none text-base-content placeholder-base-content/50 bg-base-100"
-                  rows={2}
-                />
-                <button
-                  type="submit"
-                  disabled={!input.trim() || loading}
-                  className="absolute top-3 right-3 p-2 text-base-content/60 hover:text-primary disabled:opacity-50 transition-colors"
+          {/* Fixed Input Area + Disclaimer */}
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-base-100 border-t border-base-300 shadow-lg">
+            {/* Input Area */}
+            <div className="px-4 py-6 sm:px-6">
+              <div className="mx-auto max-w-3xl">
+                {/* Input Form */}
+                <form
+                  onSubmit={handleSendMessage}
+                  className="flex items-center gap-3"
                 >
-                  <Send className="w-5 h-5" />
-                </button>
-              </form>
+                  {/* Reset Button (Light) */}
+                  <button
+                    type="button"
+                    onClick={handleResetChat}
+                    className="flex-shrink-0 w-10 h-10 rounded-full bg-base-200 hover:bg-base-300 text-base-content/70 hover:text-base-content flex items-center justify-center transition-colors"
+                    title="Réinitialiser le chat"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+
+                  {/* Textarea */}
+                  <textarea
+                    ref={inputRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage(e as any);
+                      }
+                    }}
+                    placeholder="Posez une question..."
+                    className="flex-1 px-4 py-3 resize-none outline-none text-base-content placeholder-base-content/50 bg-base-100 border border-base-300 rounded-lg"
+                    rows={2}
+                  />
+
+                  {/* Send Button (Dark) */}
+                  <button
+                    type="submit"
+                    disabled={!input.trim() || loading}
+                    className="flex-shrink-0 w-10 h-10 rounded-full bg-base-content hover:bg-base-content/90 disabled:bg-base-content/30 text-base-100 flex items-center justify-center transition-colors disabled:opacity-60"
+                    title="Envoyer"
+                  >
+                    <Send className="w-5 h-5" />
+                  </button>
+                </form>
+              </div>
             </div>
-          </div>
-          {/* Disclaimer bottom bar */}
-          <div className="border-t border-base-300 bg-base-200 px-6 py-3">
-            <p className="text-sm text-base-content/60 text-center flex items-center justify-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-base-content/60" />
-              JurisBénin est un assistant IA. Les réponses sont à titre
-              informatif et ne remplacent pas l'avis d'un avocat.
-            </p>
+
+            {/* Disclaimer bottom bar */}
+            <div className="border-t border-base-300 bg-base-200 px-4 py-2">
+              <p className="text-xs text-base-content/50 text-center flex items-center justify-center gap-1.5">
+                <AlertTriangle className="w-3 h-3 text-base-content/50" />
+                JurisBénin est un assistant IA. Les réponses sont à titre
+                informatif et ne remplacent pas l'avis d'un avocat. La base de
+                données est actuellement constituée de lois de 2025.
+              </p>
+            </div>
           </div>
         </div>
       </div>
