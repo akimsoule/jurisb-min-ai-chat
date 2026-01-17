@@ -34,7 +34,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     if (!extractor) {
       extractor = await pipeline(
         "feature-extraction",
-        "Xenova/all-MiniLM-L12-v2"
+        "Xenova/all-MiniLM-L12-v2",
       );
     }
 
