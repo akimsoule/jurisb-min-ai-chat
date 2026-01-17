@@ -94,22 +94,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Décrément d'1 crédit (transaction atomique)
+    // Décrément d'1 crédit (simple update, pas de transaction en mode HTTP Neon)
     try {
-      await prisma.$transaction(async (tx) => {
-        const fresh = await tx.user.findUnique({
-          where: { id: user.id },
-          select: { credits: true },
-        });
-
-        // if (!fresh || fresh.credits < 1) {
-        //   throw new Error("INSUFFICIENT_CREDITS");
-        // }
-
-        await tx.user.update({
-          where: { id: user.id },
-          data: { credits: { decrement: 1 } },
-        });
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { credits: { decrement: 1 } },
       });
     } catch (creditError) {
       console.error("Credit decrement failed:", creditError);

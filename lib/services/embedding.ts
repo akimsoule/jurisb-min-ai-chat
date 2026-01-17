@@ -5,7 +5,7 @@ const hf = new HfInference(process.env.HUGGINGFACE_API_KEY);
 export async function generateEmbedding(text: string): Promise<number[]> {
   try {
     const result = await hf.featureExtraction({
-      model: "sentence-transformers/all-MiniLM-L12-v2",
+      model: "nomic-ai/nomic-embed-text-v1.5",
       inputs: text,
     });
 
