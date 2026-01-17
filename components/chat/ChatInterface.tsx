@@ -91,11 +91,9 @@ export default function ChatInterface() {
   };
 
   const handleResetChat = () => {
-    if (confirm("Êtes-vous sûr de vouloir réinitialiser le chat ?")) {
-      setMessages([]);
-      setInput("");
-      setError(null);
-    }
+    setMessages([]);
+    setInput("");
+    setError(null);
   };
 
   return (
@@ -229,7 +227,7 @@ export default function ChatInterface() {
               className="btn btn-primary w-full"
               onClick={() => {
                 const drawerInput = document.getElementById(
-                  "app-drawer"
+                  "app-drawer",
                 ) as HTMLInputElement;
                 if (drawerInput) drawerInput.checked = false;
               }}
@@ -241,7 +239,7 @@ export default function ChatInterface() {
               className="btn btn-outline btn-secondary w-full"
               onClick={() => {
                 const drawerInput = document.getElementById(
-                  "app-drawer"
+                  "app-drawer",
                 ) as HTMLInputElement;
                 if (drawerInput) drawerInput.checked = false;
               }}

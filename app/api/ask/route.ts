@@ -1,15 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/server";
 import prisma from "@/lib/db/prisma";
-import { env } from "@xenova/transformers";
-
-// Force le mode WebAssembly (indispensable sur Vercel)
-env.allowLocalModels = false;
-env.allowRemoteModels = true;
-if (env.backends?.onnx) {
-  env.backends.onnx.wasm.wasmPaths = "https://cdn.jsdelivr.net";
-}
-
 import { generateEmbedding } from "@/lib/services/embedding";
 import { generateLegalResponse } from "@/lib/services/groq";
 import { searchArticles } from "@/lib/services/neo4j";
@@ -29,7 +20,7 @@ export async function POST(req: NextRequest) {
     if (!cleanedQuestion) {
       return NextResponse.json(
         { error: "Une question est requise" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -38,7 +29,7 @@ export async function POST(req: NextRequest) {
     if (!session) {
       return NextResponse.json(
         { error: "Authentification requise" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -67,41 +58,39 @@ export async function POST(req: NextRequest) {
     // Score < 0.5 = articles non pertinents = refuser de répondre
     const MIN_SIMILARITY_SCORE = 0.5;
     const relevantArticles = articles.filter(
-      (article) => article.score >= MIN_SIMILARITY_SCORE
+      (article) => article.score >= MIN_SIMILARITY_SCORE,
     );
 
     if (!articles.length || !relevantArticles.length) {
       return NextResponse.json(
         { answer: NO_RESULT_MESSAGE, sources: [], tokens_used: 0 },
-        { status: 200 }
+        { status: 200 },
       );
     }
-
-    console.log(relevantArticles);
 
     // Construction du contexte textuel (uniquement articles pertinents)
     const context = relevantArticles
       .map(
         (article) =>
-          `Article: ${article.numero_article} – ${article.titre_loi}\nContenu: ${article.contenu}\nScore: ${article.score}`
+          `Article: ${article.numero_article} – ${article.titre_loi}\nContenu: ${article.contenu}\nScore: ${article.score}`,
       )
       .join("\n\n---\n\n");
 
     const { text, tokens } = await generateLegalResponse(
       cleanedQuestion,
-      context
+      context,
     );
 
     // Vérifier si le LLM a retourné le message de refus standard
     // Si oui, ne pas retourner de sources (éviter les références parasites)
     const isNoResultResponse = text.includes(
-      "Aucune disposition légale béninoise pertinente"
+      "Aucune disposition légale béninoise pertinente",
     );
 
     if (isNoResultResponse) {
       return NextResponse.json(
         { answer: NO_RESULT_MESSAGE, sources: [], tokens_used: tokens },
-        { status: 200 }
+        { status: 200 },
       );
     }
 
@@ -126,7 +115,7 @@ export async function POST(req: NextRequest) {
       console.error("Credit decrement failed:", creditError);
       return NextResponse.json(
         { error: "Crédits insuffisants" },
-        { status: 402 }
+        { status: 402 },
       );
     }
 
@@ -142,7 +131,7 @@ export async function POST(req: NextRequest) {
         })),
         tokens_used: tokens,
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.error("Error in /api/ask:", error);

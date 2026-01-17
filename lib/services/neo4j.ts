@@ -32,7 +32,7 @@ interface ArticleHit {
  */
 export async function searchArticles(
   embedding: number[],
-  limit: number = 4
+  limit: number = 4,
 ): Promise<ArticleHit[]> {
   const driver = getDriver();
   const session: Session = driver.session({
@@ -46,10 +46,9 @@ export async function searchArticles(
       YIELD node, score
       RETURN node.id AS id, node.numero_article AS numero_article, node.titre_loi AS titre_loi, node.contenu AS contenu, node.source AS source, node.metadata AS metadata, score
       `,
-      { limit: Math.floor(limit), embedding }
+      { limit: Math.floor(limit), embedding },
     );
 
-    console.log(result);
     return result.records.map((record) => {
       const metadata = record.get("metadata");
       let parsedMetadata: ArticleHit["metadata"] = {
@@ -83,7 +82,7 @@ export async function searchArticles(
       RETURN a.id AS id, a.numero_article AS numero_article, a.titre_loi AS titre_loi, a.contenu AS contenu, a.source AS source, a.metadata AS metadata
       LIMIT $limit
       `,
-      { limit: Math.floor(limit) }
+      { limit: Math.floor(limit) },
     );
 
     return fallback.records.map((record) => {
@@ -128,7 +127,7 @@ export async function getArticleRelations(articleId: string) {
       MATCH (a:Article { id: $articleId })-[r]-(related:Article)
       RETURN type(r) as relationType, related.id, related.numero_article, related.titre_loi
       `,
-      { articleId }
+      { articleId },
     );
 
     return result.records.map((record) => ({
