@@ -6,10 +6,10 @@ interface EmptyStateProps {
 
 export default function EmptyState({ onSuggestedQuestion }: EmptyStateProps) {
   const suggestions = [
-    "Quels sont mes droits en matière de travail ?",
-    "Comment rédiger un contrat de location ?",
-    "Quelle est la procédure de divorce au Bénin ?",
-    "Quelles sont les obligations du propriétaire ?",
+    "Quelles sont les obligations d'un propriétaire et les garanties lors de la construction d'un bâtiment ?",
+    "Quels sont mes droits en tant que client (coopérateur) d'une institution de microfinance ?",
+    "Comment créer une association ou une organisation non gouvernementale (ONG) au Bénin ?",
+    "Quelles sont les conditions pour qu'un étranger puisse résider et travailler légalement au Bénin ?",
   ];
 
   return (
