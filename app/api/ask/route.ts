@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/server";
-import prisma from "@/lib/db/prisma";
+// import { getSession } from "@/lib/auth/server";
+// import prisma from "@/lib/db/prisma";
 import { generateEmbedding } from "@/lib/services/embedding";
 import { generateLegalResponse } from "@/lib/services/groq";
 import { searchArticles } from "@/lib/services/neo4j";
@@ -25,21 +25,21 @@ export async function POST(req: NextRequest) {
     }
 
     // Auth obligatoire
-    const session = await getSession();
-    if (!session) {
-      return NextResponse.json(
-        { error: "Authentification requise" },
-        { status: 401 },
-      );
-    }
+    // const session = await getSession();
+    // if (!session) {
+    //   return NextResponse.json(
+    //     { error: "Authentification requise" },
+    //     { status: 401 },
+    //   );
+    // }
 
     // Chargement utilisateur + quota
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-    });
-    if (!user) {
-      return NextResponse.json({ error: "Session invalide" }, { status: 401 });
-    }
+    // const user = await prisma.user.findUnique({
+    //   where: { id: session.userId },
+    // });
+    // if (!user) {
+    //   return NextResponse.json({ error: "Session invalide" }, { status: 401 });
+    // }
 
     // if (user.credits < 1) {
     //   return NextResponse.json(
@@ -95,18 +95,18 @@ export async function POST(req: NextRequest) {
     }
 
     // Décrément d'1 crédit (simple update, pas de transaction en mode HTTP Neon)
-    try {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { credits: { decrement: 1 } },
-      });
-    } catch (creditError) {
-      console.error("Credit decrement failed:", creditError);
-      return NextResponse.json(
-        { error: "Crédits insuffisants" },
-        { status: 402 },
-      );
-    }
+    // try {
+    //   await prisma.user.update({
+    //     where: { id: user.id },
+    //     data: { credits: { decrement: 1 } },
+    //   });
+    // } catch (creditError) {
+    //   console.error("Credit decrement failed:", creditError);
+    //   return NextResponse.json(
+    //     { error: "Crédits insuffisants" },
+    //     { status: 402 },
+    //   );
+    // }
 
     return NextResponse.json(
       {
