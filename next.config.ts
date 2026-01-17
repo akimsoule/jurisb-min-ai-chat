@@ -1,19 +1,8 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+const nextConfig = {
   // Cette clé est la plus importante pour Transformers.js sur Vercel
   serverExternalPackages: ["@xenova/transformers"],
 
-  experimental: {
-    turbo: {
-      resolveAlias: {
-        // Évite le chargement natif libonnxruntime.* en forçant le backend WASM
-        "onnxruntime-node": "onnxruntime-web",
-      },
-    },
-  },
-
-  webpack: (config) => {
+  webpack: (config: any) => {
     config.resolve = config.resolve || {};
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
