@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/server";
 import prisma from "@/lib/db/prisma";
+import { env } from "@xenova/transformers";
+
+// Forcer le mode WASM (WebAssembly) pour éviter les binaires natifs ONNX
+env.allowLocalModels = false;
+// @ts-ignore
+env.backends.onnx.wasm.wasmPaths = "https://cdn.jsdelivr.net";
+env.allowRemoteModels = true;
+
 import { generateEmbedding } from "@/lib/services/embedding";
 import { generateLegalResponse } from "@/lib/services/groq";
 import { searchArticles } from "@/lib/services/neo4j";
