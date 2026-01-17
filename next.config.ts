@@ -2,6 +2,13 @@ const nextConfig = {
   // Cette clé est la plus importante pour Transformers.js sur Vercel
   serverExternalPackages: ["@xenova/transformers"],
 
+  // Turbopack alias pour éviter le chargement natif d'onnxruntime
+  turbopack: {
+    resolveAlias: {
+      "onnxruntime-node": "onnxruntime-web",
+    },
+  },
+
   webpack: (config: any) => {
     config.resolve = config.resolve || {};
     config.resolve.alias = {
