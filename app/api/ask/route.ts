@@ -3,11 +3,12 @@ import { getSession } from "@/lib/auth/server";
 import prisma from "@/lib/db/prisma";
 import { env } from "@xenova/transformers";
 
-// Forcer le mode WASM (WebAssembly) pour éviter les binaires natifs ONNX
+// Force le mode WebAssembly (indispensable sur Vercel)
 env.allowLocalModels = false;
-// @ts-ignore
-env.backends.onnx.wasm.wasmPaths = "https://cdn.jsdelivr.net";
 env.allowRemoteModels = true;
+if (env.backends?.onnx) {
+  env.backends.onnx.wasm.wasmPaths = "https://cdn.jsdelivr.net";
+}
 
 import { generateEmbedding } from "@/lib/services/embedding";
 import { generateLegalResponse } from "@/lib/services/groq";
