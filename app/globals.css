@@ -8,6 +8,23 @@
 @import "./styles/headings.css";
 
 
+/* Utility: line clamp without Tailwind plugin */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* Prevent horizontal scrolling in main app containers */
+html, body {
+  overflow-x: hidden;
+}
+
+.hidden {
+    display: none !important;
+}
+
 @plugin "daisyui/theme" {
   name: "light";
   default: false;

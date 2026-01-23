@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
     // Envoi vers Telegram si configuré
     // Support des deux conventions de variables (local/prod)
     const tgToken = process.env.TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_KEY;
-    const tgChatId = process.env.TELEGRAM_CHAT_ID || process.env.TELEGRAM_GROUP_ID;
+    const tgChatId =
+      process.env.TELEGRAM_CHAT_ID || process.env.TELEGRAM_GROUP_ID;
     if (tgToken && tgChatId) {
       try {
         // Telegram limite à ~4096 caractères par message

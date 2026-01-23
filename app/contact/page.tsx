@@ -165,7 +165,7 @@ export default function ContactPage() {
             />
           </div>
 
-          <div className="form-control">
+          <div className="form-control overflow-x-hidden">
             <label className="cursor-pointer label justify-start gap-3">
               <input
                 type="checkbox"
@@ -173,7 +173,7 @@ export default function ContactPage() {
                 checked={consent}
                 onChange={(e) => setConsent(e.target.checked)}
               />
-              <span className="label-text">
+              <span className="label-text whitespace-normal break-words line-clamp-2">
                 Je souhaite participer activement au projet JurisBénin.
               </span>
             </label>

@@ -153,8 +153,14 @@ export default function ChatInterface() {
     setError(null);
   };
 
+  const openDonateModalMobile = () => {
+    try {
+      globalThis.dispatchEvent?.(new CustomEvent("open-donate-modal"));
+    } catch {}
+  };
+
   return (
-    <div className="drawer">
+    <div className="drawer overflow-x-hidden">
       <input id="app-drawer" type="checkbox" className="drawer-toggle" />
       <div className="drawer-content flex flex-col min-h-screen w-full">
         <Header />
@@ -278,35 +284,62 @@ export default function ChatInterface() {
             </label>
           </div>
           <div className="flex-1" />
-          {/* Buttons */}
-          {activated && (
-            <div className="border-t border-base-300 p-4 flex flex-col gap-2 bg-base-100">
-              <Link
-                href="/auth/signup"
-                className="btn btn-primary w-full"
-                onClick={() => {
-                  const drawerInput = document.getElementById(
-                    "app-drawer",
-                  ) as HTMLInputElement;
-                  if (drawerInput) drawerInput.checked = false;
-                }}
-              >
-                Inscription
-              </Link>
-              <Link
-                href="/auth/login"
-                className="btn btn-outline btn-secondary w-full"
-                onClick={() => {
-                  const drawerInput = document.getElementById(
-                    "app-drawer",
-                  ) as HTMLInputElement;
-                  if (drawerInput) drawerInput.checked = false;
-                }}
-              >
-                Connexion
-              </Link>
-            </div>
-          )}
+          {/* Actions Mobile */}
+          <div className="border-t border-base-300 p-4 flex flex-col gap-2 bg-base-100">
+            <button
+              className="btn btn-outline w-full"
+              onClick={() => {
+                openDonateModalMobile();
+                const drawerInput = document.getElementById(
+                  "app-drawer",
+                ) as HTMLInputElement;
+                if (drawerInput) drawerInput.checked = false;
+              }}
+            >
+              Soutenir
+            </button>
+            <Link
+              href="/contact"
+              className="btn btn-ghost w-full"
+              onClick={() => {
+                const drawerInput = document.getElementById(
+                  "app-drawer",
+                ) as HTMLInputElement;
+                if (drawerInput) drawerInput.checked = false;
+              }}
+            >
+              Participer
+            </Link>
+
+            {activated && (
+              <>
+                <Link
+                  href="/auth/signup"
+                  className="btn btn-primary w-full"
+                  onClick={() => {
+                    const drawerInput = document.getElementById(
+                      "app-drawer",
+                    ) as HTMLInputElement;
+                    if (drawerInput) drawerInput.checked = false;
+                  }}
+                >
+                  Inscription
+                </Link>
+                <Link
+                  href="/auth/login"
+                  className="btn btn-outline btn-secondary w-full"
+                  onClick={() => {
+                    const drawerInput = document.getElementById(
+                      "app-drawer",
+                    ) as HTMLInputElement;
+                    if (drawerInput) drawerInput.checked = false;
+                  }}
+                >
+                  Connexion
+                </Link>
+              </>
+            )}
+          </div>
         </aside>
       </div>
     </div>

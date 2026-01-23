@@ -1,4 +1,4 @@
-import { BookOpen, Copy, Check, ScrollText, AlertCircle } from "lucide-react";
+import { BookOpen, Copy, Check, ScrollText } from "lucide-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -33,8 +33,10 @@ export default function ChatMessage({ message }: ChatMessageProps) {
     return (
       <div className="flex justify-end mb-6">
         <div className="max-w-md lg:max-w-lg">
-          <div className="rounded-lg bg-base-200 px-4 py-3 text-sm text-base-content">
-            {message.content}
+          <div className="rounded-lg bg-base-200 px-4 py-3 text-sm text-base-content overflow-x-hidden">
+            <p className="line-clamp-2 break-words overflow-hidden">
+              {message.content}
+            </p>
           </div>
         </div>
       </div>
@@ -149,7 +151,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
               return { ...g, articles: articlesSorted };
             });
             return (
-              <div className="mt-4 space-y-2 bg-base-100 rounded-lg p-3 border border-base-300">
+              <div className="mt-4 space-y-2 bg-base-100 rounded-lg p-3 border border-base-300 overflow-x-hidden">
                 <h4 className="font-semibold text-xs text-base-content/80 flex items-center gap-2">
                   <BookOpen className="w-3 h-3" />
                   Fondement légal
@@ -169,21 +171,23 @@ export default function ChatMessage({ message }: ChatMessageProps) {
                         key={itemKey}
                         className="text-xs text-base-content/80"
                       >
-                        <p className="font-medium text-base-content">
+                        <p className="font-medium text-base-content line-clamp-2 break-words overflow-hidden">
                           {displayArticles.length > 1
                             ? "Articles "
                             : "Article "}
                           {displayArticles.join(", ")}
                         </p>
-                        <p className="text-base-content/70">{g.title}</p>
+                        <p className="text-base-content/70 line-clamp-2 break-words overflow-hidden">
+                          {g.title}
+                        </p>
                         {(g.lawNumber || g.source || g.lawDate) && (
-                          <p className="text-base-content/70">
+                          <p className="text-base-content/70 line-clamp-2 break-words overflow-hidden">
                             {g.source ? (
                               <a
                                 href={g.source}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-xs text-base-content/70 hover:text-base-content underline"
+                                className="text-xs text-base-content/70 hover:text-base-content underline line-clamp-2 break-words overflow-hidden"
                               >
                                 {`Source : ${lawLabel}`}
                               </a>

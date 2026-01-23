@@ -35,6 +35,12 @@ export default function Header({ onCreditsClick }: HeaderProps) {
       setTheme(savedTheme);
       document.documentElement.dataset.theme = savedTheme;
     }
+    // Ecoute l'événement global pour ouvrir le modal de don (mobile drawer)
+    const onOpenDonate = () => setDonateModalOpen(true);
+    globalThis.addEventListener?.("open-donate-modal", onOpenDonate);
+    return () => {
+      globalThis.removeEventListener?.("open-donate-modal", onOpenDonate);
+    };
   }, []);
 
   const toggleTheme = () => {
