@@ -84,7 +84,7 @@ export default function Header({ onCreditsClick }: HeaderProps) {
               {/* Donate Button */}
               <button
                 onClick={() => setDonateModalOpen(true)}
-                className="btn btn-sm btn-outline gap-1 hidden sm:flex"
+                className="btn btn-sm btn-outline gap-1 !hidden sm:!flex"
                 title="Soutenir le projet"
               >
                 <Heart className="w-4 h-4" />
@@ -94,7 +94,7 @@ export default function Header({ onCreditsClick }: HeaderProps) {
               {/* Participer (Contact) */}
               <Link
                 href="/contact"
-                className="btn btn-sm btn-ghost hidden sm:flex"
+                className="btn btn-sm btn-ghost !hidden sm:!flex"
                 title="Participer au projet"
               >
                 Participer

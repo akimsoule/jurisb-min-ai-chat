@@ -21,10 +21,6 @@ html, body {
   overflow-x: hidden;
 }
 
-.hidden {
-    display: none !important;
-}
-
 @plugin "daisyui/theme" {
   name: "light";
   default: false;
