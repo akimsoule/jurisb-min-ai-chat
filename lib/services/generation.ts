@@ -23,7 +23,7 @@ class GroqGenerator implements LegalGenerator {
   async generate(question: string, context: string): Promise<GenerationResult> {
     const { text, tokens } = await generateLegalResponse(question, context);
 
-    if (!text || !text.trim()) {
+    if (!text?.trim()) {
       throw new Error("Réponse Groq vide");
     }
 
