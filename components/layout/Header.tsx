@@ -85,6 +85,15 @@ export default function Header({ onCreditsClick }: HeaderProps) {
                 Soutenir
               </button>
 
+              {/* Participer (Contact) */}
+              <Link
+                href="/contact"
+                className="btn btn-sm btn-ghost hidden sm:flex"
+                title="Participer au projet"
+              >
+                Participer
+              </Link>
+
               {/* Theme Toggle */}
               <button
                 onClick={toggleTheme}
