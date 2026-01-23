@@ -40,6 +40,7 @@ export default function ChatInterface() {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
+    // Validation simplifiée: pas de CAPTCHA
 
     setError(null);
 
@@ -70,10 +71,64 @@ export default function ChatInterface() {
       }
 
       const data = await response.json();
+
+      // Sanitize contenu: retirer le titre initial "Réponse juridique"
+      // et supprimer un éventuel bloc "Fondement légal" présent dans la réponse du LLM
+      const sanitizeAnswer = (text: string): string => {
+        if (!text) return text;
+        let out = text;
+
+        // 1) Retirer un heading markdown ou une ligne simple "Réponse juridique" en tête
+        out = out.replace(/^\s*#{1,6}\s*Réponse juridique\s*\n+/i, "");
+        out = out.replace(/^\s*Réponse juridique\s*\n+/i, "");
+
+        // 2) Supprimer le premier bloc "Fondement légal" marqué en heading markdown
+        out = out.replace(
+          /(^|\n)#{1,6}\s*Fondement légal[\s\S]*?(?=\n#{1,6}\s|$)/i,
+          (m, p1) => p1 ?? "",
+        );
+
+        // 3) Si le bloc n'était pas en heading markdown, retirer une section débutant par une ligne contenant "Fondement légal"
+        //    jusqu'au prochain heading, ou mot-clé de section courant (Extrait(s) pertinent(s) | Limites / réserves), ou fin.
+        const lower = out.toLowerCase();
+        const needle = "fondement légal";
+        const idx = lower.indexOf(needle);
+        if (idx !== -1) {
+          const start = out.lastIndexOf("\n", idx) + 1; // début de ligne
+          const after = out.slice(idx);
+          const relHeading = after.search(/\n#{1,6}\s/i);
+          const relExtrait = after.search(
+            /\n\s*extrait\(s\)\s*pertinent\(s\)/i,
+          );
+          const relLimites = after.search(/\n\s*limites\s*\/\s*r[ée]serves/i);
+          const relHr = after.search(/\n---+\n/);
+          const candidates = [relHeading, relExtrait, relLimites, relHr].filter(
+            (v) => v >= 0,
+          );
+          const end =
+            candidates.length > 0 ? idx + Math.min(...candidates) : out.length;
+          const before = out.slice(0, start);
+          const afterClean = out.slice(end);
+          out = `${before}${afterClean}`;
+        }
+
+        return out.trim();
+      };
+
+      const cleanedAnswer = sanitizeAnswer(data.answer);
+
+      // Si réponse vide mais sources présentes, afficher un message informatif
+      const finalContent =
+        !cleanedAnswer?.trim() &&
+        Array.isArray(data.sources) &&
+        data.sources.length > 0
+          ? "Réponse indisponible pour le moment. Voici les références juridiques pertinentes :"
+          : cleanedAnswer;
+
       const assistantMessage: Message = {
         id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-a`,
         role: "assistant",
-        content: data.answer,
+        content: finalContent,
         sources: data.sources,
         timestamp: new Date(),
       };
@@ -145,6 +200,8 @@ export default function ChatInterface() {
             {/* Input Area */}
             <div className="px-4 py-6 sm:px-6">
               <div className="mx-auto max-w-3xl">
+                {/* CAPTCHA retiré pour simplification */}
+
                 {/* Input Form */}
                 <form
                   onSubmit={handleSendMessage}
@@ -160,7 +217,6 @@ export default function ChatInterface() {
                     <Plus className="w-5 h-5" />
                   </button>
 
-                  {/* Textarea */}
                   <textarea
                     ref={inputRef}
                     value={input}
@@ -179,7 +235,7 @@ export default function ChatInterface() {
                   {/* Send Button (Dark) */}
                   <button
                     type="submit"
-                    disabled={!input.trim() || loading}
+                    disabled={loading || !input.trim()}
                     className="flex-shrink-0 w-10 h-10 rounded-full bg-base-content hover:bg-base-content/90 disabled:bg-base-content/30 text-base-100 flex items-center justify-center transition-colors disabled:opacity-60"
                     title="Envoyer"
                   >

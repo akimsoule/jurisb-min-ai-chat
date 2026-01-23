@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { logout } from "@/lib/auth/server";
+import { OPEN_MODE } from "../config";
 
 interface User {
   id: string;
@@ -30,14 +31,14 @@ export function useCurrentUser() {
       } catch (error) {
         console.error(
           "Erreur lors de la récupération de l'utilisateur:",
-          error
+          error,
         );
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchUser();
+    !OPEN_MODE && fetchUser();
   }, []);
 
   const handleLogout = useCallback(async () => {

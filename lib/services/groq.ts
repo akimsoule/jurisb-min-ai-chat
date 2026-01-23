@@ -41,7 +41,7 @@ Si le contexte contient des dispositions pertinentes, utilise ce format OBLIGATO
 export async function generateLegalResponse(
   question: string,
   context: string,
-  systemPrompt?: string
+  systemPrompt?: string,
 ): Promise<{ text: string; tokens: number }> {
   try {
     const message = await groq.chat.completions.create({
