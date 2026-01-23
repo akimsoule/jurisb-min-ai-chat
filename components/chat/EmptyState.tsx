@@ -6,7 +6,7 @@ interface EmptyStateProps {
 
 export default function EmptyState({ onSuggestedQuestion }: EmptyStateProps) {
   const suggestions = [
-    "Comment obtenir la nationalité béninoise par naturalisation ?",
+    "Comment obtenir la nationalité béninoise ?",
     "Quels sont mes droits en tant que client (coopérateur) d'une institution de microfinance ?",
     "Comment créer une association ou une organisation non gouvernementale (ONG) au Bénin ?",
     "Quelles sont les conditions pour qu'un étranger puisse résider et travailler légalement au Bénin ?",
