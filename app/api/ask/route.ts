@@ -10,19 +10,30 @@ import {
 import { NO_RESULT_MESSAGE, UNVAILABLE_ANSWER_MESSAGE } from "@/lib/constants";
 import { WITH_LLM } from "@/lib/config";
 
+/* ------------------------------------------------------------------ */
+/* Configuration                                                       */
+/* ------------------------------------------------------------------ */
 const MAX_QUESTION_LENGTH = 500;
 const RATE_LIMIT = { max: 15, windowMs: 60_000 };
 const MIN_SIMILARITY_SCORE = 0.65;
 
-/**
- * POST /api/ask
- * Pipeline : rate-limit → validation → embedding → RAG → décision → LLM
- */
+/* ------------------------------------------------------------------ */
+/* Types                                                               */
+/* ------------------------------------------------------------------ */
+type AnswerReason =
+  | "NO_LEGAL_BASIS"
+  | "INSUFFICIENT_RELEVANCE"
+  | "ANSWERED"
+  | "LLM_UNCERTAIN"
+  | "LLM_FAILURE"
+  | "LLM_DISABLED";
+
+/* ------------------------------------------------------------------ */
+/* POST /api/ask                                                       */
+/* ------------------------------------------------------------------ */
 export async function POST(req: NextRequest) {
   try {
-    /* ------------------------------------------------------------------ */
-    /* Rate limiting                                                       */
-    /* ------------------------------------------------------------------ */
+    /* --------------------------- Rate limit -------------------------- */
     const key = getClientKey(req.headers);
     const rl = limit(key, RATE_LIMIT.max, RATE_LIMIT.windowMs);
 
@@ -33,9 +44,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    /* ------------------------------------------------------------------ */
-    /* Validation input                                                    */
-    /* ------------------------------------------------------------------ */
+    /* ------------------------- Input validation ---------------------- */
     const body = await req.json();
     const question =
       typeof body?.question === "string" ? body.question.trim() : "";
@@ -44,9 +53,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Question invalide" }, { status: 400 });
     }
 
-    /* ------------------------------------------------------------------ */
-    /* Embedding                                                           */
-    /* ------------------------------------------------------------------ */
+    /* ---------------------------- Embedding -------------------------- */
     let embedding: number[] = [];
 
     if (WITH_LLM) {
@@ -57,97 +64,74 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    /* ------------------------------------------------------------------ */
-    /* RAG – Recherche Neo4j                                               */
-    /* ------------------------------------------------------------------ */
+    /* --------------------------- RAG Search -------------------------- */
     const articles = await searchArticles(embedding, question, 4);
 
+    // ÉTAT 1 — Aucun fondement légal
     if (!articles.length) {
-      return NextResponse.json(
-        {
-          answer: NO_RESULT_MESSAGE,
-          sources: [],
-          tokens_used: 0,
-          reason: "NO_LEGAL_BASIS",
-        },
-        { status: 200 },
-      );
+      return respond(NO_RESULT_MESSAGE, [], 0, "NO_LEGAL_BASIS");
     }
 
     const relevantArticles = articles.filter(
       (a) => a.score >= MIN_SIMILARITY_SCORE,
     );
 
+    // ÉTAT 2 — Textes existants mais insuffisants
     if (!relevantArticles.length) {
-      return NextResponse.json(
-        {
-          answer: UNVAILABLE_ANSWER_MESSAGE,
-          sources: articles.map(mapSource),
-          tokens_used: 0,
-          reason: "INSUFFICIENT_RELEVANCE",
-        },
-        { status: 200 },
+      return respond(
+        UNVAILABLE_ANSWER_MESSAGE,
+        articles.map(mapSource),
+        0,
+        "INSUFFICIENT_RELEVANCE",
       );
     }
 
-    /* ------------------------------------------------------------------ */
-    /* Construction du contexte                                            */
-    /* ------------------------------------------------------------------ */
+    /* -------------------------- Context build ------------------------ */
     const context = relevantArticles
       .map((a) => `Article ${a.numero_article} – ${a.titre_loi}\n${a.contenu}`)
       .join("\n\n---\n\n");
 
-    /* ------------------------------------------------------------------ */
-    /* Génération LLM                                                      */
-    /* ------------------------------------------------------------------ */
+    // LLM désactivé
     if (!WITH_LLM) {
-      return NextResponse.json(
-        {
-          answer: UNVAILABLE_ANSWER_MESSAGE,
-          sources: relevantArticles.map(mapSource),
-          tokens_used: 0,
-          reason: "LLM_DISABLED",
-        },
-        { status: 200 },
+      return respond(
+        UNVAILABLE_ANSWER_MESSAGE,
+        relevantArticles.map(mapSource),
+        0,
+        "LLM_DISABLED",
       );
     }
 
+    /* --------------------------- LLM Call ---------------------------- */
     try {
       const res = await generateWithFallback(question, context);
 
-      if (!res?.text) {
-        return NextResponse.json(
-          {
-            answer: UNVAILABLE_ANSWER_MESSAGE,
-            sources: relevantArticles.map(mapSource),
-            tokens_used: res?.tokens ?? 0,
-            reason: "LLM_EMPTY_RESPONSE",
-          },
-          { status: 200 },
+      // 🔒 Le LLM n’a PAS le droit de nier l’existence du droit
+      if (!res?.text || llmIsDenyingLegalBasis(res.text)) {
+        return respond(
+          UNVAILABLE_ANSWER_MESSAGE,
+          relevantArticles.map(mapSource),
+          res?.tokens ?? 0,
+          "LLM_UNCERTAIN",
+          res?.provider,
         );
       }
 
-      return NextResponse.json(
-        {
-          answer: res.text,
-          sources: relevantArticles.map(mapSource),
-          tokens_used: res.tokens ?? 0,
-          provider: res.provider ?? "unknown",
-          reason: "ANSWERED",
-        },
-        { status: 200 },
+      // Réponse valide
+      return respond(
+        res.text,
+        relevantArticles.map(mapSource),
+        res.tokens ?? 0,
+        "ANSWERED",
+        res.provider,
       );
     } catch (err) {
       console.warn("LLM generation failed:", err);
 
-      return NextResponse.json(
-        {
-          answer: UNVAILABLE_ANSWER_MESSAGE,
-          sources: relevantArticles.map(mapSource),
-          tokens_used: 0,
-          reason: "LLM_FAILURE",
-        },
-        { status: 200 },
+      return respond(
+        UNVAILABLE_ANSWER_MESSAGE,
+        relevantArticles.map(mapSource),
+        0,
+        "LLM_FAILURE",
       );
     }
   } catch (error) {
@@ -157,8 +141,28 @@ export async function POST(req: NextRequest) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Helpers                                                            */
+/* Helpers                                                             */
 /* ------------------------------------------------------------------ */
+
+function respond(
+  answer: string,
+  sources: any[],
+  tokens: number,
+  reason: AnswerReason,
+  provider?: string,
+) {
+  return NextResponse.json(
+    {
+      answer,
+      sources,
+      tokens_used: tokens,
+      provider: provider ?? "unknown",
+      reason,
+    },
+    { status: 200 },
+  );
+}
+
 function mapSource(article: any) {
   return {
     title: article.titre_loi,
@@ -167,4 +171,22 @@ function mapSource(article: any) {
     lawDate: article.metadata?.lawDate,
     source: article.metadata?.source,
   };
+}
+
+/**
+ * Détecte un refus illégitime du LLM
+ * (le LLM n’a PAS le droit de dire qu’il n’existe pas de loi
+ * quand des articles lui ont été fournis)
+ */
+function llmIsDenyingLegalBasis(text: string): boolean {
+  const patterns = [
+    "aucune disposition",
+    "aucun article",
+    "aucune base légale",
+    "n'existe pas de texte",
+    "aucune disposition légale",
+  ];
+
+  const lower = text.toLowerCase();
+  return patterns.some((p) => lower.includes(p));
 }
