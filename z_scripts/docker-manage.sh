@@ -97,6 +97,7 @@ start_services() {
       --network $NETWORK \
       -p 7687:7687 \
       -p 7474:7474 \
+      -e NEO4J_PLUGINS='["apoc"]' \
       -e NEO4J_AUTH=neo4j/password \
       -e NEO4J_ACCEPT_LICENSE_AGREEMENT=yes \
       -v neo4j_data:/var/lib/neo4j/data \

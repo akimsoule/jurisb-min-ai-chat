@@ -1,27 +1,23 @@
-import { pipeline } from "@xenova/transformers";
+import { InferenceClient } from "@huggingface/inference";
 
-// Cache du pipeline pour éviter de le recharger
-let extractor: any = null;
-
-async function getExtractor() {
-  if (!extractor) {
-    extractor = await pipeline(
-      "feature-extraction",
-      "Xenova/all-MiniLM-L12-v2",
-    );
-  }
-  return extractor;
-}
+const HF_API_KEY = process.env.HUGGINGFACE_API_KEY;
+const hf = new InferenceClient(HF_API_KEY);
 
 export async function generateEmbedding(text: string): Promise<number[]> {
-  try {
-    const pipe = await getExtractor();
-    const result = await pipe(text, { pooling: "mean", normalize: true });
-
-    // Le résultat est un tensor, on le convertit en array
-    return Array.from(result.data);
-  } catch (error) {
-    console.error("Embedding Error:", error);
-    throw error;
+  if (!HF_API_KEY) {
+    throw new Error("HUGGINGFACE_API_KEY is not set");
   }
+
+  const result = await hf.featureExtraction({
+    model: "sentence-transformers/all-MiniLM-L12-v2",
+    inputs: text,
+    provider: "hf-inference",
+  });
+
+  if (Array.isArray(result[0])) {
+    // result is number[][], flatten to number[]
+    return (result as number[][]).flat();
+  }
+  // result is number[]
+  return result as number[];
 }

@@ -117,12 +117,12 @@ export default function ChatInterface() {
 
       const cleanedAnswer = sanitizeAnswer(data.answer);
 
-      // Si réponse vide mais sources présentes, afficher un message informatif
+      // Si réponse vide mais sources présentes, afficher un message informatif avec les références
       const finalContent =
         !cleanedAnswer?.trim() &&
         Array.isArray(data.sources) &&
         data.sources.length > 0
-          ? "Réponse indisponible pour le moment. Voici les références juridiques pertinentes :"
+          ? "Réponse indisponible pour le moment.\n\nVoici les références juridiques pertinentes :"
           : cleanedAnswer;
 
       const assistantMessage: Message = {

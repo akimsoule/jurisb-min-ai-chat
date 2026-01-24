@@ -1,8 +1,33 @@
-import { Driver, Session } from "neo4j-driver";
-import neo4j from "neo4j-driver";
+import neo4j, { Driver, Session } from "neo4j-driver";
+import { frenchStopWords } from "@/lib/constants";
 
 let driver: Driver | null = null;
 
+export interface ArticleHit {
+  id: string;
+  numero_article: string;
+  titre_loi: string;
+  contenu: string;
+  score: number;
+  metadata: {
+    lawNumber: string;
+    lawDate: string;
+    source: string;
+  };
+}
+
+export interface LawHit {
+  id: string;
+  code: string;
+  titre: string;
+  date_promulgation: string;
+  source: string;
+  statut: string;
+}
+
+/**
+ * Retourne le driver Neo4j singleton
+ */
 function getDriver(): Driver {
   if (!driver) {
     const uri = process.env.NEO4J_URI || "neo4j://localhost:7687";
@@ -14,25 +39,28 @@ function getDriver(): Driver {
   return driver;
 }
 
-interface ArticleHit {
-  id: string;
-  numero_article: string;
-  titre_loi: string;
-  contenu: string;
-  score: number;
-  metadata?: {
-    lawNumber?: string;
-    lawDate?: string;
-    source?: string;
-  };
+/**
+ * Parse la metadata JSON
+ */
+function parseMetadata(metadata: any, source: string): ArticleHit["metadata"] {
+  let parsed: ArticleHit["metadata"] = { source, lawNumber: "", lawDate: "" };
+
+  if (metadata && typeof metadata === "string") {
+    try {
+      parsed = { ...parsed, ...JSON.parse(metadata) };
+    } catch (e) {
+      console.warn("Failed to parse metadata:", metadata, e);
+    }
+  }
+
+  return parsed;
 }
 
 /**
- * Recherche les articles pertinents via similarité cosinus sur l'index vectoriel Neo4j
+ * Charge les articles complets par IDs
  */
-export async function searchArticles(
-  embedding: number[],
-  limit: number = 4,
+async function loadFullArticlesByIds(
+  articleIds: string[],
 ): Promise<ArticleHit[]> {
   const driver = getDriver();
   const session: Session = driver.session({
@@ -42,80 +70,248 @@ export async function searchArticles(
   try {
     const result = await session.run(
       `
-      CALL db.index.vector.queryNodes('article_embeddings', $limit, $embedding)
-      YIELD node, score
-      RETURN node.id AS id, node.numero_article AS numero_article, node.titre_loi AS titre_loi, node.contenu AS contenu, node.source AS source, node.metadata AS metadata, score
-      `,
-      { limit: Math.floor(limit), embedding },
-    );
-
-    return result.records.map((record) => {
-      const metadata = record.get("metadata");
-      let parsedMetadata: ArticleHit["metadata"] = {
-        source: record.get("source"),
-      };
-
-      if (metadata && typeof metadata === "string") {
-        try {
-          const parsed = JSON.parse(metadata);
-          parsedMetadata = { ...parsedMetadata, ...parsed };
-        } catch (e) {
-          console.warn("Failed to parse metadata:", metadata);
-        }
-      }
-
-      return {
-        id: record.get("id"),
-        numero_article: record.get("numero_article"),
-        titre_loi: record.get("titre_loi"),
-        contenu: record.get("contenu"),
-        score: record.get("score"),
-        metadata: parsedMetadata,
-      };
-    });
-  } catch (error) {
-    // Fallback sans index vectoriel : retourne les premiers articles pour éviter un crash
-    console.error("Error searching articles:", error);
-    const fallback = await session.run(
-      `
       MATCH (a:Article)
-      RETURN a.id AS id, a.numero_article AS numero_article, a.titre_loi AS titre_loi, a.contenu AS contenu, a.source AS source, a.metadata AS metadata
-      LIMIT $limit
+      WHERE a.id IN $articleIds
+      RETURN a.id AS id,
+             a.numero_article AS numero_article,
+             a.titre_loi AS titre_loi,
+             a.contenu AS contenu,
+             a.metadata AS metadata
       `,
-      { limit: Math.floor(limit) },
+      { articleIds },
     );
 
-    return fallback.records.map((record) => {
-      const metadata = record.get("metadata");
-      let parsedMetadata: ArticleHit["metadata"] = {
-        source: record.get("source"),
-      };
-
-      if (metadata && typeof metadata === "string") {
-        try {
-          const parsed = JSON.parse(metadata);
-          parsedMetadata = { ...parsedMetadata, ...parsed };
-        } catch (e) {
-          console.warn("Failed to parse metadata:", metadata);
-        }
-      }
-
-      return {
+    const hits: ArticleHit[] = [];
+    for (const record of result.records) {
+      hits.push({
         id: record.get("id"),
         numero_article: record.get("numero_article"),
         titre_loi: record.get("titre_loi"),
         contenu: record.get("contenu"),
         score: 0,
-        metadata: parsedMetadata,
-      };
-    });
+        metadata: parseMetadata(
+          record.get("metadata"),
+          record.get("titre_loi"),
+        ),
+      });
+    }
+
+    return hits;
   } finally {
     await session.close();
   }
 }
 
 /**
- * Récupère les relations entre articles (abroge, modifie, etc.)
+ * Recherche textuelle basique
+ */
+async function performTextSearch(
+  session: Session,
+  query: string,
+  limit: number,
+): Promise<ArticleHit[]> {
+  const keywords = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !frenchStopWords.has(w));
+
+  if (!keywords.length) return [];
+
+  const result = await session.run(
+    `
+    MATCH (a:Article)
+    WHERE ANY(word IN $keywords WHERE toLower(a.contenu) CONTAINS word)
+    RETURN a.id AS id,
+           a.numero_article AS numero_article,
+           a.titre_loi AS titre_loi,
+           a.contenu AS contenu,
+           a.metadata AS metadata
+    LIMIT toInteger($limit)
+    `,
+    { keywords, limit: Math.floor(limit) },
+  );
+
+  const hits: ArticleHit[] = [];
+  for (const record of result.records) {
+    hits.push({
+      id: record.get("id"),
+      numero_article: record.get("numero_article"),
+      titre_loi: record.get("titre_loi"),
+      contenu: record.get("contenu"),
+      score: 0.8,
+      metadata: parseMetadata(record.get("metadata"), record.get("titre_loi")),
+    });
+  }
+
+  return hits;
+}
+
+/**
+ * Recherche vectorielle
+ */
+async function performVectorSearch(
+  session: Session,
+  embedding: number[],
+  limit: number,
+): Promise<ArticleHit[]> {
+  const result = await session.run(
+    `
+    CALL db.index.vector.queryNodes('article_embeddings', toInteger($limit), $embedding)
+    YIELD node, score
+    RETURN node.id AS id,
+           node.numero_article AS numero_article,
+           node.titre_loi AS titre_loi,
+           node.contenu AS contenu,
+           node.metadata AS metadata,
+           score
+    `,
+    { limit: Math.floor(limit), embedding },
+  );
+
+  const hits: ArticleHit[] = [];
+  for (const record of result.records) {
+    hits.push({
+      id: record.get("id"),
+      numero_article: record.get("numero_article"),
+      titre_loi: record.get("titre_loi"),
+      contenu: record.get("contenu"),
+      score: record.get("score"),
+      metadata: parseMetadata(record.get("metadata"), record.get("titre_loi")),
+    });
+  }
+
+  return hits;
+}
+
+/**
+ * Recherche principale
+ */
+export async function searchArticles(
+  embedding: number[],
+  query: string,
+  limit = 4,
+): Promise<ArticleHit[]> {
+  const driver = getDriver();
+  const session: Session = driver.session({
+    database: process.env.NEO4J_DATABASE || "neo4j",
+  });
+
+  try {
+    if (!embedding || embedding.length === 0) {
+      return await performTextSearch(session, query, limit);
+    } else {
+      return await performVectorSearch(session, embedding, limit);
+    }
+  } catch (error) {
+    console.error("Search failed:", error);
+    return [];
+  } finally {
+    await session.close();
+  }
+}
+
+/**
+ * Recherche les lois
+ */
+export async function searchLaws(query: string, limit = 10): Promise<LawHit[]> {
+  const driver = getDriver();
+  const session: Session = driver.session({
+    database: process.env.NEO4J_DATABASE || "neo4j",
+  });
+
+  try {
+    const keywords = query
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !frenchStopWords.has(w));
+
+    if (!keywords.length) return [];
+
+    const result = await session.run(
+      `
+      MATCH (l:Loi)
+      WHERE ANY(word IN $keywords WHERE toLower(l.titre) CONTAINS word OR toLower(l.code) CONTAINS word)
+      RETURN l.id AS id,
+             l.code AS code,
+             l.titre AS titre,
+             l.date_promulgation AS date_promulgation,
+             l.source AS source,
+             l.statut AS statut
+      LIMIT toInteger($limit)
+      `,
+      { keywords, limit: Math.floor(limit) },
+    );
+
+    const hits: LawHit[] = [];
+    for (const record of result.records) {
+      hits.push({
+        id: record.get("id"),
+        code: record.get("code"),
+        titre: record.get("titre"),
+        date_promulgation: record.get("date_promulgation"),
+        source: record.get("source"),
+        statut: record.get("statut"),
+      });
+    }
+
+    return hits;
+  } catch (error) {
+    console.error("Law search failed:", error);
+    return [];
+  } finally {
+    await session.close();
+  }
+}
+
+/**
+ * Récupère les articles d'une loi
+ */
+export async function getArticlesByLaw(lawId: string): Promise<ArticleHit[]> {
+  const driver = getDriver();
+  const session: Session = driver.session({
+    database: process.env.NEO4J_DATABASE || "neo4j",
+  });
+
+  try {
+    const result = await session.run(
+      `
+      MATCH (l:Loi {id: $lawId})<-[:APPARTIENT_A]-(a:Article)
+      RETURN a.id AS id,
+             a.numero_article AS numero_article,
+             a.titre_loi AS titre_loi,
+             a.contenu AS contenu,
+             a.metadata AS metadata
+      ORDER BY a.numero_article
+      `,
+      { lawId },
+    );
+
+    const hits: ArticleHit[] = [];
+    for (const record of result.records) {
+      hits.push({
+        id: record.get("id"),
+        numero_article: record.get("numero_article"),
+        titre_loi: record.get("titre_loi"),
+        contenu: record.get("contenu"),
+        score: 0,
+        metadata: parseMetadata(
+          record.get("metadata"),
+          record.get("titre_loi"),
+        ),
+      });
+    }
+
+    return hits;
+  } catch (error) {
+    console.error("Error fetching articles by law:", error);
+    return [];
+  } finally {
+    await session.close();
+  }
+}
+
+/**
+ * Récupère les relations entre articles
  */
 export async function getArticleRelations(articleId: string) {
   const driver = getDriver();
@@ -124,17 +320,20 @@ export async function getArticleRelations(articleId: string) {
   try {
     const result = await session.run(
       `
-      MATCH (a:Article { id: $articleId })-[r]-(related:Article)
-      RETURN type(r) as relationType, related.id, related.numero_article, related.titre_loi
+      MATCH (a:Article {id: $articleId})-[r]-(related:Article)
+      RETURN type(r) AS relationType,
+             related.id AS id,
+             related.numero_article AS numero_article,
+             related.titre_loi AS titre_loi
       `,
       { articleId },
     );
 
     return result.records.map((record) => ({
       type: record.get("relationType"),
-      articleId: record.get("related.id"),
-      numero_article: record.get("related.numero_article"),
-      titre_loi: record.get("related.titre_loi"),
+      id: record.get("id"),
+      numero_article: record.get("numero_article"),
+      titre_loi: record.get("titre_loi"),
     }));
   } catch (error) {
     console.error("Error fetching article relations:", error);
@@ -145,7 +344,7 @@ export async function getArticleRelations(articleId: string) {
 }
 
 /**
- * Ferme la connexion au driver
+ * Ferme le driver Neo4j
  */
 export async function closeDriver() {
   if (driver) {
