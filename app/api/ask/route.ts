@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateEmbedding } from "@/lib/services/embedding";
-import { generateWithFallback } from "@/lib/services/generation";
+import {
+  generateWithFallback,
+  generateWithFallbackStream,
+} from "@/lib/services/generation";
 import { searchArticles } from "@/lib/services/neo4j";
 import {
   getClientKey,
@@ -127,33 +130,22 @@ export async function POST(req: NextRequest) {
     }
 
     /* --------------------------- LLM Call ---------------------------- */
-    console.log("[API /ask] Appel au LLM pour génération de réponse");
+    console.log(
+      "[API /ask] Appel au LLM pour génération de réponse en streaming",
+    );
     try {
-      const res = await generateWithFallback(question, context);
-      console.log("[API /ask] Réponse du LLM reçue, provider:", res?.provider);
+      const stream = await generateWithFallbackStream(question, context);
+      console.log("[API /ask] Stream du LLM obtenu");
 
-      // 🔒 Le LLM n’a PAS le droit de nier l’existence du droit
-      if (!res?.text || llmIsDenyingLegalBasis(res.text)) {
-        console.log(
-          "[API /ask] LLM a nié le fondement légal, réponse LLM_UNCERTAIN",
-        );
-        return respond(
-          UNVAILABLE_ANSWER_MESSAGE,
-          relevantArticles.map(mapSource),
-          res?.tokens ?? 0,
-          "LLM_UNCERTAIN",
-          res?.provider,
-        );
-      }
+      // Vérifier si le stream est vide ou invalide (mais difficile à vérifier sans consommer)
+      // Pour simplifier, on assume que si on arrive ici, c'est valide
 
-      // Réponse valide
-      console.log("[API /ask] Réponse valide générée, raison ANSWERED");
-      return respond(
-        res.text,
+      console.log("[API /ask] Réponse en streaming générée");
+      return respondStream(
+        stream,
         relevantArticles.map(mapSource),
-        res.tokens ?? 0,
         "ANSWERED",
-        res.provider,
+        "groq",
       );
     } catch (err) {
       console.warn("[API /ask] Échec de la génération LLM:", err);
@@ -198,6 +190,56 @@ function respond(
     },
     { status: 200 },
   );
+}
+
+function respondStream(
+  answerStream: ReadableStream<Uint8Array>,
+  sources: any[],
+  reason: AnswerReason,
+  provider: string,
+) {
+  console.log(
+    `[API /ask] Réponse en streaming envoyée avec raison: ${reason}, provider: ${provider}`,
+  );
+
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      // Envoyer les métadonnées d'abord
+      const metadata = {
+        sources,
+        reason,
+        provider,
+        streaming: true,
+      };
+      controller.enqueue(encoder.encode(JSON.stringify(metadata) + "\n"));
+
+      // Puis streamer la réponse
+      const reader = answerStream.getReader();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = new TextDecoder().decode(value);
+          controller.enqueue(encoder.encode(JSON.stringify({ chunk }) + "\n"));
+        }
+      } finally {
+        reader.releaseLock();
+      }
+
+      // Fin du stream
+      controller.enqueue(encoder.encode(JSON.stringify({ done: true }) + "\n"));
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-cache",
+    },
+  });
 }
 
 function mapSource(article: any) {

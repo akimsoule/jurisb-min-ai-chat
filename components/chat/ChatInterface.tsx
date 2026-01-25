@@ -70,10 +70,72 @@ export default function ChatInterface() {
         return;
       }
 
-      const data = await response.json();
+      // Lire le stream
+      const reader = response.body?.getReader();
+      if (!reader) {
+        setError("Impossible de lire la réponse");
+        return;
+      }
 
-      // Sanitize contenu: retirer le titre initial "Réponse juridique"
-      // et supprimer un éventuel bloc "Fondement légal" présent dans la réponse du LLM
+      const decoder = new TextDecoder();
+      let metadata: any = null;
+      let fullAnswer = "";
+      let sources: any[] = [];
+
+      // Créer un message assistant temporaire pour le streaming
+      const assistantMessageId = crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-a`;
+      const tempMessage: Message = {
+        id: assistantMessageId,
+        role: "assistant",
+        content: "",
+        sources: [],
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, tempMessage]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              const data = JSON.parse(line);
+
+              if (data.streaming) {
+                // Métadonnées
+                metadata = data;
+                sources = data.sources || [];
+              } else if (data.chunk) {
+                // Chunk de réponse
+                fullAnswer += data.chunk;
+
+                // Mettre à jour le message en temps réel
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, content: fullAnswer, sources }
+                      : msg,
+                  ),
+                );
+              } else if (data.done) {
+                // Fin du stream
+                break;
+              }
+            } catch (parseError) {
+              console.warn("Erreur de parsing du chunk:", line, parseError);
+            }
+          }
+        }
+      }
+
+      // Nettoyer la réponse finale
       const sanitizeAnswer = (text: string): string => {
         if (!text) return text;
         let out = text;
@@ -115,25 +177,22 @@ export default function ChatInterface() {
         return out.trim();
       };
 
-      const cleanedAnswer = sanitizeAnswer(data.answer);
+      const cleanedAnswer = sanitizeAnswer(fullAnswer);
 
       // Si réponse vide mais sources présentes, afficher un message informatif avec les références
       const finalContent =
-        !cleanedAnswer?.trim() &&
-        Array.isArray(data.sources) &&
-        data.sources.length > 0
+        !cleanedAnswer?.trim() && Array.isArray(sources) && sources.length > 0
           ? "Réponse indisponible pour le moment.\n\nVoici les références juridiques pertinentes :"
           : cleanedAnswer;
 
-      const assistantMessage: Message = {
-        id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-a`,
-        role: "assistant",
-        content: finalContent,
-        sources: data.sources,
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
+      // Mettre à jour le message final
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId
+            ? { ...msg, content: finalContent, sources }
+            : msg,
+        ),
+      );
     } catch (err) {
       console.error("Chat error", err);
       setError("Impossible de récupérer la réponse. Réessayez.");

@@ -1,4 +1,4 @@
-import { generateLegalResponse } from "./groq";
+import { generateLegalResponse, generateLegalResponseStream } from "./groq";
 
 export type ProviderName = "groq";
 
@@ -11,6 +11,10 @@ export interface GenerationResult {
 export interface LegalGenerator {
   name: ProviderName;
   generate(question: string, context: string): Promise<GenerationResult>;
+  generateStream(
+    question: string,
+    context: string,
+  ): Promise<ReadableStream<Uint8Array>>;
 }
 
 /* =========================
@@ -32,6 +36,13 @@ class GroqGenerator implements LegalGenerator {
       tokens,
       provider: "groq",
     };
+  }
+
+  async generateStream(
+    question: string,
+    context: string,
+  ): Promise<ReadableStream<Uint8Array>> {
+    return generateLegalResponseStream(question, context);
   }
 }
 
@@ -60,6 +71,26 @@ export async function generateWithFallback(
 
   try {
     return await generator.generate(question, context);
+  } catch (error: any) {
+    const msg = String(error?.message || error);
+    console.error(`[generation] Provider '${generator.name}' failed: ${msg}`);
+    throw error;
+  }
+}
+
+export async function generateWithFallbackStream(
+  question: string,
+  context: string,
+  generators: LegalGenerator[] = getDefaultGenerators(),
+): Promise<ReadableStream<Uint8Array>> {
+  const generator = generators[0];
+
+  if (!generator) {
+    throw new Error("No generator configured");
+  }
+
+  try {
+    return await generator.generateStream(question, context);
   } catch (error: any) {
     const msg = String(error?.message || error);
     console.error(`[generation] Provider '${generator.name}' failed: ${msg}`);

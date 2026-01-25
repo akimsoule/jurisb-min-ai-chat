@@ -74,3 +74,46 @@ export async function generateLegalResponse(
     throw error;
   }
 }
+
+/**
+ * Génère une réponse juridique basée sur le contexte récupéré (streaming)
+ */
+export async function generateLegalResponseStream(
+  question: string,
+  context: string,
+  systemPrompt?: string,
+): Promise<ReadableStream<Uint8Array>> {
+  try {
+    const stream = await groq.chat.completions.create({
+      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+      max_tokens: 1200,
+      temperature: 0.2,
+      stream: true,
+      messages: [
+        {
+          role: "system",
+          content: systemPrompt || DEFAULT_SYSTEM_PROMPT,
+        },
+        {
+          role: "user",
+          content: `Contexte légal strict (ne jamais inventer) :\n${context}\n\nQuestion utilisateur : ${question}`,
+        },
+      ],
+    });
+
+    return new ReadableStream({
+      async start(controller) {
+        for await (const chunk of stream) {
+          const content = chunk.choices[0]?.delta?.content || "";
+          if (content) {
+            controller.enqueue(new TextEncoder().encode(content));
+          }
+        }
+        controller.close();
+      },
+    });
+  } catch (error) {
+    console.error("Error generating legal response stream:", error);
+    throw error;
+  }
+}
