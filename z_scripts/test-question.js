@@ -6,14 +6,13 @@
  * Exemple: node z_scripts/test-question.js "Quelles sont les obligations d'un propriétaire et les garanties lors de la construction d'un bâtiment ?"
  */
 
-require('dotenv').config({ path: '.env.local' });
+require('dotenv').config({ path: '.env.production' });
 
 const neo4j = require('neo4j-driver');
 const { HfInference } = require('@huggingface/inference');
 const { Groq } = require('groq-sdk');
 
-const [, , rawQuestion] = process.argv;
-const question = (rawQuestion || '').trim();
+const question = "Comment obtenir la nationalité béninoise ?";
 
 if (!question) {
   console.error('❌ Veuillez fournir une question.');
@@ -22,7 +21,7 @@ if (!question) {
 }
 
 const NEO4J_URI = process.env.NEO4J_URI || 'neo4j://localhost:7687';
-const NEO4J_USER = process.env.NEO4J_USER || 'neo4j';
+const NEO4J_USER = process.env.NEO4J_USERNAME || 'neo4j';
 const NEO4J_PASSWORD = process.env.NEO4J_PASSWORD || 'password';
 const NEO4J_DATABASE = process.env.NEO4J_DATABASE || 'neo4j';
 const HF_API_KEY = process.env.HUGGINGFACE_API_KEY;
@@ -80,11 +79,17 @@ async function searchArticles(embedding) {
   const session = driver.session({ database: NEO4J_DATABASE });
 
   try {
+    // Compter le nombre total d'articles
+    const countResult = await session.run('MATCH (a:Article) RETURN count(a) AS total');
+    const totalArticles = countResult.records[0].get('total').toNumber();
+    console.log(`📊 Nombre total d'articles dans Neo4j: ${totalArticles}`);
+
     // Résoudre l'index vectoriel disponible
     let vectorIndexName = null;
     try {
       const showRes = await session.run(`SHOW INDEXES YIELD name RETURN name`);
       const names = showRes.records.map((r) => r.get('name'));
+      console.log(`🔍 Index disponibles: ${names.join(', ')}`);
       if (names.includes('article_embeddings')) {
         vectorIndexName = 'article_embeddings';
       } else if (names.includes('node_embeddings')) {
@@ -98,6 +103,8 @@ async function searchArticles(embedding) {
       console.warn('⚠️  Aucun index vectoriel disponible dans Neo4j.');
       return [];
     }
+
+    console.log(`✅ Utilisation de l'index vectoriel: ${vectorIndexName}`);
 
     const result = await session.run(
       `
@@ -118,7 +125,7 @@ async function searchArticles(embedding) {
       { indexName: vectorIndexName, limitInt: SEARCH_LIMIT, embedding }
     );
 
-    return result.records.map((record) => {
+    const articles = result.records.map((record) => {
       const metadataStr = record.get('metadata');
       let metadata = {};
       if (metadataStr && typeof metadataStr === 'string') {
@@ -138,6 +145,9 @@ async function searchArticles(embedding) {
         metadata,
       };
     });
+
+    console.log(`🔎 ${articles.length} articles trouvés via recherche vectorielle`);
+    return articles;
   } finally {
     await session.close();
     await driver.close();

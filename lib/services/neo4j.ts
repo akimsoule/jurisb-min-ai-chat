@@ -31,7 +31,7 @@ export interface LawHit {
 function getDriver(): Driver {
   if (!driver) {
     const uri = process.env.NEO4J_URI || "neo4j://localhost:7687";
-    const user = process.env.NEO4J_USER || "neo4j";
+    const user = process.env.NEO4J_USERNAME || "neo4j";
     const password = process.env.NEO4J_PASSWORD || "password";
 
     driver = neo4j.driver(uri, neo4j.auth.basic(user, password));
@@ -115,11 +115,13 @@ async function performTextSearch(
     .split(/\s+/)
     .filter((w) => w.length > 2 && !frenchStopWords.has(w));
 
+  console.log("[Neo4j] Recherche textuelle avec keywords:", keywords);
+
   if (!keywords.length) return [];
 
   const result = await session.run(
     `
-    MATCH (a:Article)
+    MATCH (a:ARTICLE)
     WHERE ANY(word IN $keywords WHERE toLower(a.contenu) CONTAINS word)
     RETURN a.id AS id,
            a.numero_article AS numero_article,
@@ -130,6 +132,8 @@ async function performTextSearch(
     `,
     { keywords, limit: Math.floor(limit) },
   );
+
+  console.log("[Neo4j] Résultats textuels:", result.records.length);
 
   const hits: ArticleHit[] = [];
   for (const record of result.records) {
@@ -154,19 +158,26 @@ async function performVectorSearch(
   embedding: number[],
   limit: number,
 ): Promise<ArticleHit[]> {
+  console.log("[Neo4j] Exécution recherche vectorielle avec limit:", limit);
   const result = await session.run(
     `
     CALL db.index.vector.queryNodes('article_embeddings', toInteger($limit), $embedding)
     YIELD node, score
-    RETURN node.id AS id,
-           node.numero_article AS numero_article,
-           node.titre_loi AS titre_loi,
-           node.contenu AS contenu,
-           node.metadata AS metadata,
-           score
+    WITH node, score
+    WHERE any(l IN labels(node) WHERE l IN ['ARTICLE', 'Article'])
+    OPTIONAL MATCH (node)-[:APPARTIENT_A]->(law:LOI)
+    RETURN 
+      node.id AS id,
+      node.numero_article AS numero_article,
+      node.titre_loi AS titre_loi,
+      node.contenu AS contenu,
+      node.metadata AS metadata,
+      law.titre AS law_titre,
+      score
     `,
     { limit: Math.floor(limit), embedding },
   );
+  console.log("[Neo4j] Résultats vectoriels:", result.records.length);
 
   const hits: ArticleHit[] = [];
   for (const record of result.records) {
@@ -191,19 +202,37 @@ export async function searchArticles(
   query: string,
   limit = 4,
 ): Promise<ArticleHit[]> {
+  console.log(
+    "[Neo4j] Recherche d'articles - embedding length:",
+    embedding?.length,
+    "query:",
+    query,
+  );
   const driver = getDriver();
   const session: Session = driver.session({
     database: process.env.NEO4J_DATABASE || "neo4j",
   });
 
   try {
+    // Vérifier le nombre total d'articles
+    const countResult = await session.run(
+      "MATCH (a:ARTICLE) RETURN count(a) AS total",
+    );
+    const totalArticles = countResult.records[0].get("total").toNumber();
+    console.log("[Neo4j] Nombre total d'articles dans la BD:", totalArticles);
+
+    let results: ArticleHit[];
     if (!embedding || embedding.length === 0) {
-      return await performTextSearch(session, query, limit);
+      console.log("[Neo4j] Recherche textuelle");
+      results = await performTextSearch(session, query, limit);
     } else {
-      return await performVectorSearch(session, embedding, limit);
+      console.log("[Neo4j] Recherche vectorielle");
+      results = await performVectorSearch(session, embedding, limit);
     }
+    console.log("[Neo4j] Résultats trouvés:", results.length);
+    return results;
   } catch (error) {
-    console.error("Search failed:", error);
+    console.error("[Neo4j] Erreur de recherche:", error);
     return [];
   } finally {
     await session.close();

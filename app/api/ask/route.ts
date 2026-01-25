@@ -202,7 +202,7 @@ function respond(
 
 function mapSource(article: any) {
   return {
-    title: article.titre_loi,
+    title: article.titre_loi || article.law_titre || "",
     article: article.numero_article,
     lawNumber: article.metadata?.lawNumber,
     lawDate: article.metadata?.lawDate,

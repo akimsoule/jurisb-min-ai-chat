@@ -1,9 +1,9 @@
-require('dotenv').config({ path: '.env.local' });
+require('dotenv').config({ path: '.env.production' });
 const neo4j = require('neo4j-driver');
 
 async function showNeo4jStructure() {
   const uri = process.env.NEO4J_URI || "neo4j://localhost:7687";
-  const user = process.env.NEO4J_USER || "neo4j";
+  const user = process.env.NEO4J_USERNAME || "neo4j";
   const password = process.env.NEO4J_PASSWORD || "password";
 
   const driver = neo4j.driver(uri, neo4j.auth.basic(user, password));
