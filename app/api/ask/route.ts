@@ -32,12 +32,14 @@ type AnswerReason =
 /* POST /api/ask                                                       */
 /* ------------------------------------------------------------------ */
 export async function POST(req: NextRequest) {
+  console.log("[API /ask] Requête reçue");
   try {
     /* --------------------------- Rate limit -------------------------- */
     const key = getClientKey(req.headers);
     const rl = limit(key, RATE_LIMIT.max, RATE_LIMIT.windowMs);
 
     if (!rl.allowed) {
+      console.log("[API /ask] Rate limit dépassé pour clé:", key);
       return NextResponse.json(
         { error: "Trop de requêtes. Réessayez plus tard." },
         { status: 429, headers: rateLimitHeaders(rl) },
@@ -50,34 +52,51 @@ export async function POST(req: NextRequest) {
       typeof body?.question === "string" ? body.question.trim() : "";
 
     if (!question || question.length > MAX_QUESTION_LENGTH) {
+      console.log("[API /ask] Question invalide:", question);
       return NextResponse.json({ error: "Question invalide" }, { status: 400 });
     }
+
+    console.log("[API /ask] Question validée:", question);
 
     /* ---------------------------- Embedding -------------------------- */
     let embedding: number[] = [];
 
     if (WITH_LLM) {
       try {
+        console.log("[API /ask] Génération d'embedding pour la question");
         embedding = await generateEmbedding(question);
+        console.log("[API /ask] Embedding généré avec succès");
       } catch (err) {
-        console.error("Embedding failed, fallback text search:", err);
+        console.error(
+          "[API /ask] Échec de l'embedding, fallback vers recherche texte:",
+          err,
+        );
       }
     }
 
     /* --------------------------- RAG Search -------------------------- */
+    console.log("[API /ask] Recherche d'articles avec embedding et question");
     const articles = await searchArticles(embedding, question, 4);
+    console.log(`[API /ask] ${articles.length} articles trouvés`);
 
     // ÉTAT 1 — Aucun fondement légal
     if (!articles.length) {
+      console.log("[API /ask] Aucun article trouvé, réponse NO_LEGAL_BASIS");
       return respond(NO_RESULT_MESSAGE, [], 0, "NO_LEGAL_BASIS");
     }
 
     const relevantArticles = articles.filter(
       (a) => a.score >= MIN_SIMILARITY_SCORE,
     );
+    console.log(
+      `[API /ask] ${relevantArticles.length} articles pertinents (score >= ${MIN_SIMILARITY_SCORE})`,
+    );
 
     // ÉTAT 2 — Textes existants mais insuffisants
     if (!relevantArticles.length) {
+      console.log(
+        "[API /ask] Articles trouvés mais insuffisamment pertinents, réponse INSUFFICIENT_RELEVANCE",
+      );
       return respond(
         UNVAILABLE_ANSWER_MESSAGE,
         articles.map(mapSource),
@@ -90,9 +109,15 @@ export async function POST(req: NextRequest) {
     const context = relevantArticles
       .map((a) => `Article ${a.numero_article} – ${a.titre_loi}\n${a.contenu}`)
       .join("\n\n---\n\n");
+    console.log(
+      "[API /ask] Contexte construit avec",
+      relevantArticles.length,
+      "articles",
+    );
 
     // LLM désactivé
     if (!WITH_LLM) {
+      console.log("[API /ask] LLM désactivé, réponse LLM_DISABLED");
       return respond(
         UNVAILABLE_ANSWER_MESSAGE,
         relevantArticles.map(mapSource),
@@ -102,11 +127,16 @@ export async function POST(req: NextRequest) {
     }
 
     /* --------------------------- LLM Call ---------------------------- */
+    console.log("[API /ask] Appel au LLM pour génération de réponse");
     try {
       const res = await generateWithFallback(question, context);
+      console.log("[API /ask] Réponse du LLM reçue, provider:", res?.provider);
 
       // 🔒 Le LLM n’a PAS le droit de nier l’existence du droit
       if (!res?.text || llmIsDenyingLegalBasis(res.text)) {
+        console.log(
+          "[API /ask] LLM a nié le fondement légal, réponse LLM_UNCERTAIN",
+        );
         return respond(
           UNVAILABLE_ANSWER_MESSAGE,
           relevantArticles.map(mapSource),
@@ -117,6 +147,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Réponse valide
+      console.log("[API /ask] Réponse valide générée, raison ANSWERED");
       return respond(
         res.text,
         relevantArticles.map(mapSource),
@@ -125,7 +156,10 @@ export async function POST(req: NextRequest) {
         res.provider,
       );
     } catch (err) {
-      console.warn("LLM generation failed:", err);
+      console.warn("[API /ask] Échec de la génération LLM:", err);
+      console.log(
+        "[API /ask] Fallback vers réponse sans LLM, raison LLM_FAILURE",
+      );
 
       return respond(
         UNVAILABLE_ANSWER_MESSAGE,
@@ -135,7 +169,7 @@ export async function POST(req: NextRequest) {
       );
     }
   } catch (error) {
-    console.error("Error in /api/ask:", error);
+    console.error("[API /ask] Erreur générale dans /api/ask:", error);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
@@ -151,6 +185,9 @@ function respond(
   reason: AnswerReason,
   provider?: string,
 ) {
+  console.log(
+    `[API /ask] Réponse envoyée avec raison: ${reason}, tokens: ${tokens}, provider: ${provider ?? "unknown"}`,
+  );
   return NextResponse.json(
     {
       answer,
