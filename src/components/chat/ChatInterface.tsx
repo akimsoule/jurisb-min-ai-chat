@@ -6,6 +6,7 @@ import ChatMessage from "./ChatMessage";
 import EmptyState from "./EmptyState";
 import Header from "@/components/layout/Header";
 import Link from "next/link";
+import { Skeleton } from "@/components/ui/skeleton";
 // DaisyUI drawer pattern (left drawer)
 
 interface Message {
@@ -183,16 +184,22 @@ export default function ChatInterface() {
                 {loading && (
                   <div className="flex gap-4 items-start">
                     <div className="h-8 w-8 rounded-full bg-base-300 flex-shrink-0" />
-                    <div className="flex gap-1 pt-2">
-                      <div className="h-2 w-2 rounded-full bg-base-content/60 animate-bounce" />
-                      <div
-                        className="h-2 w-2 rounded-full bg-base-content/60 animate-bounce"
-                        style={{ animationDelay: "0.1s" }}
-                      />
-                      <div
-                        className="h-2 w-2 rounded-full bg-base-content/60 animate-bounce"
-                        style={{ animationDelay: "0.2s" }}
-                      />
+                    <div className="flex-1 space-y-2">
+                      <div className="flex gap-1">
+                        <div className="h-2 w-2 rounded-full bg-base-content/60 animate-bounce" />
+                        <div
+                          className="h-2 w-2 rounded-full bg-base-content/60 animate-bounce"
+                          style={{ animationDelay: "0.1s" }}
+                        />
+                        <div
+                          className="h-2 w-2 rounded-full bg-base-content/60 animate-bounce"
+                          style={{ animationDelay: "0.2s" }}
+                        />
+                      </div>
+                      <Skeleton className="h-10 w-4/4" />
+                      <Skeleton className="h-30 w-4/4" />
+                      <Skeleton className="h-30 w-3/3" />
+                      <Skeleton className="h-50 w-4/4" />
                     </div>
                   </div>
                 )}
