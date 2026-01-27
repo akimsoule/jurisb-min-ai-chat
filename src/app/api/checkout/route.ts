@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     if (!session) {
       return NextResponse.json(
         { error: AUTH_ERRORS.UNAUTHORIZED.clientMessage },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     if (!planId) {
       return NextResponse.json(
         { error: "L'identifiant du plan est requis" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -55,10 +55,7 @@ export async function POST(req: NextRequest) {
 
     const plan = PLANS[planId];
     if (!plan) {
-      return NextResponse.json(
-        { error: "Plan invalide" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Plan invalide" }, { status: 400 });
     }
 
     // Crée la session Stripe avec les métadonnées utilisateur
@@ -77,8 +74,12 @@ export async function POST(req: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: successUrl || `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: cancelUrl || `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/checkout/cancel`,
+      success_url:
+        successUrl ||
+        `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:
+        cancelUrl ||
+        `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/checkout/cancel`,
       metadata: {
         userId: session.userId,
         planId,
@@ -92,13 +93,13 @@ export async function POST(req: NextRequest) {
         sessionId: checkoutSession.id,
         url: checkoutSession.url,
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.error("[CHECKOUT] Error creating session:", error);
     return NextResponse.json(
       { error: "Erreur lors de la création de la session de paiement" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
