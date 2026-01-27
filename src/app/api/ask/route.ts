@@ -7,19 +7,21 @@ import {
   limit,
   rateLimitHeaders,
 } from "@/lib/security/rate-limit";
-import { NO_RESULT_MESSAGE, UNVAILABLE_ANSWER_MESSAGE } from "@/lib/constants";
+import {
+  NO_RESULT_MESSAGE,
+  UNVAILABLE_ANSWER_MESSAGE,
+  LLM_UNCERTAIN_MESSAGE,
+  MAX_QUESTION_LENGTH,
+  RATE_LIMIT,
+  MIN_SIMILARITY_SCORE,
+} from "@/lib/constants";
 import { WITH_LLM } from "@/lib/config";
 
 /* ------------------------------------------------------------------ */
-/* Configuration                                                       */
-/* ------------------------------------------------------------------ */
-const MAX_QUESTION_LENGTH = 500;
-const RATE_LIMIT = { max: 15, windowMs: 60_000 };
-const MIN_SIMILARITY_SCORE = 0.65;
 
+/* Validation de la question juridique                                */
 /* ------------------------------------------------------------------ */
-/* Types                                                               */
-/* ------------------------------------------------------------------ */
+
 type AnswerReason =
   | "NO_LEGAL_BASIS"
   | "INSUFFICIENT_RELEVANCE"
@@ -138,7 +140,7 @@ export async function POST(req: NextRequest) {
           "[API /ask] LLM a nié le fondement légal, réponse LLM_UNCERTAIN",
         );
         return respond(
-          UNVAILABLE_ANSWER_MESSAGE,
+          LLM_UNCERTAIN_MESSAGE(relevantArticles.length),
           relevantArticles.map(mapSource),
           res?.tokens ?? 0,
           "LLM_UNCERTAIN",

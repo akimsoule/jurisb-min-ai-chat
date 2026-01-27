@@ -1,2 +1,2 @@
-export const OPEN_MODE = true;
-export const WITH_LLM = true;
+// Configuration centralisée dans constants.ts
+export { OPEN_MODE, WITH_LLM } from "./constants";

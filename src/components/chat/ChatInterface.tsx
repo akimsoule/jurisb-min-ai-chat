@@ -41,7 +41,6 @@ export default function ChatInterface() {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
-    // Validation simplifiée: pas de CAPTCHA
 
     setError(null);
 
