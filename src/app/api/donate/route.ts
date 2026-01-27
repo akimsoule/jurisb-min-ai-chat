@@ -59,8 +59,8 @@ export async function POST(req: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/?donation=success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/?donation=cancelled`,
+      success_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/?donation=success`,
+      cancel_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/?donation=cancelled`,
       metadata: {
         type: "donation",
       },
