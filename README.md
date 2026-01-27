@@ -1,36 +1,161 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# JurisBénin - SaaS Juridique Béninois
 
-## Getting Started
+Un assistant juridique intelligent spécialisé dans le droit béninois, utilisant l'IA pour fournir des réponses fiables et traçables basées sur les textes de loi.
 
-First, run the development server:
+## 🚀 Démarrage rapide
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+### Prérequis
+- Node.js 18+
+- PostgreSQL (Neon recommandé)
+- Neo4j (AuraDB recommandé)
+- Comptes API : Groq, HuggingFace, Stripe
+
+### Installation
+
+1. **Cloner le repository**
+   ```bash
+   git clone https://github.com/akimsoule/jurisb-min-ai-chat.git
+   cd jurisb-min-ai-chat
+   ```
+
+2. **Installer les dépendances**
+   ```bash
+   npm install
+   ```
+
+3. **Configuration des variables d'environnement**
+
+   Copier le fichier d'exemple :
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   Remplir `.env.local` avec vos clés API et configurations de développement.
+
+4. **Configuration de la base de données**
+   ```bash
+   npx prisma generate
+   npx prisma db push
+   ```
+
+5. **Lancer le serveur de développement**
+   ```bash
+   npm run dev
+   ```
+
+   Ouvrir [http://localhost:3000](http://localhost:3000)
+
+## 🔧 Configuration des environnements
+
+### Fichiers d'environnement
+
+- **`.env.local`** - Variables pour le développement local
+- **`.env.production`** - Variables pour la production (Vercel)
+- **`.env.example`** - Template avec toutes les variables nécessaires
+
+### Variables importantes
+
+#### Base de données
+```env
+DATABASE_URL="postgresql://..."  # PostgreSQL (Neon)
+NEO4J_URI="neo4j+s://..."       # Neo4j (AuraDB)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+#### APIs IA
+```env
+GROQ_API_KEY="gsk_..."          # Groq API
+HUGGINGFACE_API_KEY="hf_..."    # HuggingFace API
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+#### Authentification & Paiement
+```env
+JWT_SECRET="your-secret"        # Secret JWT
+NEXTAUTH_URL="http://localhost:3000"  # URL NextAuth
+STRIPE_SECRET_KEY="sk_test_..." # Stripe (test en dev)
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🏗️ Architecture
 
-## Learn More
+### Technologies
+- **Frontend** : Next.js 16, React 19, TypeScript
+- **Styling** : Tailwind CSS, DaisyUI, shadcn/ui
+- **Base de données** : PostgreSQL (Neon) + Neo4j (Graphe)
+- **IA** : Groq, Mastra Framework
+- **Paiement** : Stripe
+- **Déploiement** : Vercel
 
-To learn more about Next.js, take a look at the following resources:
+### Structure du projet
+```
+src/
+├── app/              # Next.js App Router
+├── components/       # Composants React
+│   ├── ai-elements/  # Composants UI IA (réserve)
+│   ├── auth/         # Authentification
+│   ├── chat/         # Interface de chat
+│   └── ui/           # Composants de base
+├── lib/              # Utilitaires et services
+│   ├── services/     # APIs externes
+│   ├── db/          # Connexions BD
+│   └── security/    # Authentification
+└── mastra/          # Configuration Mastra
+    ├── agents/      # Agents IA
+    ├── database/    # Config Neo4j
+    └── tools/       # Outils IA
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📜 Scripts disponibles
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run dev          # Serveur de développement
+npm run build        # Build de production
+npm run start        # Serveur de production
+npm run lint         # Vérification ESLint
+```
 
-## Deploy on Vercel
+## 🚀 Déploiement
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Vercel (Recommandé)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **Connecter le repository** sur Vercel
+2. **Variables d'environnement** : Copier le contenu de `.env.production` dans les variables Vercel
+3. **Build & Deploy** : Vercel gère automatiquement le déploiement
+
+### Variables de production
+
+Toutes les variables sensibles doivent être configurées dans :
+- **Vercel Dashboard** > Project Settings > Environment Variables
+- **OU** fichier `.env.production` (non commité)
+
+## 🔒 Sécurité
+
+- ✅ **Rate limiting** : Protection contre les abus
+- ✅ **Variables d'environnement** : Séparées par environnement
+- ✅ **Authentification JWT** : Sécurisée
+- ✅ **Validation des entrées** : Protection XSS/CSRF
+- ✅ **Clés API** : Jamais commitées (fichiers `.env*` ignorés)
+
+## 📚 API Routes
+
+- `POST /api/ask` - Questions juridiques (RAG)
+- `POST /api/chat` - Chat en streaming (Mastra)
+- `POST /api/auth/*` - Authentification
+- `POST /api/checkout` - Paiements Stripe
+- `POST /api/webhooks/stripe` - Webhooks Stripe
+
+## 🤝 Contribution
+
+1. Fork le projet
+2. Créer une branche feature (`git checkout -b feature/amazing-feature`)
+3. Commit les changements (`git commit -m 'Add amazing feature'`)
+4. Push la branche (`git push origin feature/amazing-feature`)
+5. Ouvrir une Pull Request
+
+## 📄 Licence
+
+Ce projet est sous licence MIT.
+
+## 📞 Support
+
+Pour toute question ou problème :
+- Ouvrir une issue sur GitHub
+- Contacter l'équipe de développement
