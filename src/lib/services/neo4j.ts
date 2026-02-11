@@ -2,6 +2,7 @@ import neo4j, { Driver, Session } from "neo4j-driver";
 import { frenchStopWords } from "@/lib/constants";
 
 let driver: Driver | null = null;
+let keepAliveInterval: NodeJS.Timeout | null = null;
 
 export interface ArticleHit {
   id: string;
@@ -35,6 +36,15 @@ function getDriver(): Driver {
     const password = process.env.NEO4J_PASSWORD || "password";
 
     driver = neo4j.driver(uri, neo4j.auth.basic(user, password));
+
+    // Démarrer le keep-alive toutes les 5 minutes (300000 ms)
+    keepAliveInterval = setInterval(async () => {
+      try {
+        await keepAlive();
+      } catch (error) {
+        console.error("Erreur keep-alive:", error);
+      }
+    }, 300000);
   }
   return driver;
 }
@@ -376,8 +386,32 @@ export async function getArticleRelations(articleId: string) {
  * Ferme le driver Neo4j
  */
 export async function closeDriver() {
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+    keepAliveInterval = null;
+  }
   if (driver) {
     await driver.close();
     driver = null;
+  }
+}
+
+/**
+ * Keep-alive pour la connexion Neo4j
+ * Envoie une requête simple pour éviter la fermeture de la connexion par inactivité
+ */
+export async function keepAlive() {
+  const driver = getDriver();
+  const session: Session = driver.session({
+    database: process.env.NEO4J_DATABASE || "neo4j",
+  });
+
+  try {
+    await session.run("RETURN 'ping' AS status");
+    console.log("Neo4j keep-alive: connexion active");
+  } catch (error) {
+    console.error("Erreur lors du keep-alive Neo4j:", error);
+  } finally {
+    await session.close();
   }
 }
