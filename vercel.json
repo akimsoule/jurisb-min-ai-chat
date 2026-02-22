@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "src/app/api/cron/neo4j/route.ts": {
+      "runtime": "edge"
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/neo4j",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}
